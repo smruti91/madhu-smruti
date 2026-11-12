@@ -68,8 +68,10 @@ curl http://localhost:5000/api/v1/health
 | `npm run lint`        | ESLint                                     |
 | `npm run format`      | Prettier write                             |
 | `npm run db:generate` | Drizzle: generate migrations               |
-| `npm run db:push`     | Drizzle: push schema to Neon               |
+| `npm run db:migrate`  | Drizzle: apply migrations to Neon          |
+| `npm run db:push`     | Drizzle: push schema directly to Neon      |
 | `npm run db:studio`   | Drizzle Studio                             |
+| `npm run db:seed`     | Seed first admin (see Database section)    |
 
 ### Frontend (`frontend/`)
 
@@ -108,6 +110,34 @@ The API responds with a consistent envelope:
 | ------ | ------------------- | ---------------------------------------- |
 | GET    | `/api/v1/health`    | Health check (service, env, uptime, DB)  |
 
+## Database
+
+Schema lives in `backend/src/db/schema/` (one file per table + relations). Migrations live in `backend/drizzle/`.
+
+```
+contributors ──< submissions ─── 1 │ writeup_contents   (Tiptap JSONB + HTML snapshot)
+               │            ├──< submission_images  (Cloudinary URL + public id only)
+               │            └──< submission_history (audit trail)
+admins
+```
+
+All tables use UUID primary keys. Enums enforce submission type / language / status.
+`reference_number` and admin `email` are unique. Image binaries live in Cloudinary, never in PostgreSQL.
+
+### Applying migrations to Neon
+
+```bash
+# 1. Put your Neon connection string in backend/.env (never commit it)
+#    DATABASE_URL=postgresql://user:pass@ep-xxx.aws.neon.tech/madhu_smruti?sslmode=require
+
+# 2. Apply migrations
+npm run db:migrate
+
+# 3. Seed the first admin (values come from backend/.env)
+#    ADMIN_NAME, ADMIN_EMAIL, ADMIN_PASSWORD
+npm run db:seed
+```
+
 ## Environment Variables
 
 ### Backend (`backend/.env`)
@@ -121,6 +151,9 @@ The API responds with a consistent envelope:
 | `CLOUDINARY_CLOUD_NAME`  | Later    | Cloudinary cloud name                      |
 | `CLOUDINARY_API_KEY`     | Later    | Cloudinary API key                         |
 | `CLOUDINARY_API_SECRET`  | Later    | Cloudinary API secret                      |
+| `ADMIN_NAME`             | Seeding  | First admin name (`db:seed`)               |
+| `ADMIN_EMAIL`            | Seeding  | First admin email (unique)                 |
+| `ADMIN_PASSWORD`         | Seeding  | First admin password (min 8 chars)         |
 
 ### Frontend (`frontend/.env`)
 
