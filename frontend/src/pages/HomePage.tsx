@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Heart, Server } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Heart, PenLine, Server } from "lucide-react";
 import { useHealth } from "../hooks/useHealth";
 import { Badge } from "../components/ui/Badge";
 import { Spinner } from "../components/ui/Spinner";
@@ -25,9 +26,14 @@ export function HomePage() {
         <h1 className="text-4xl font-bold">{APP_NAME}</h1>
         <p className="mt-1 text-lg text-sky-100">{APP_NAME_ODIA}</p>
         <p className="mt-4 text-sm text-sky-100">
-          A memorial web application by {ORGANIZATION}. Project scaffold is ready —
-          business features coming next.
+          A memorial web application by {ORGANIZATION}.
         </p>
+        <Link to="/submit">
+          <Button variant="secondary" className="mt-6 bg-white text-sky-700 hover:bg-sky-50">
+            <PenLine className="h-4 w-4" aria-hidden="true" />
+            Submit a writeup or painting
+          </Button>
+        </Link>
       </section>
 
       {/* Backend status */}
@@ -92,7 +98,7 @@ export function HomePage() {
         <div className="mt-4">
           <RichTextEditor
             content={SAMPLE_HTML}
-            onChange={(value) => setHtml(value)}
+            onChange={({ html: value }) => setHtml(value)}
           />
         </div>
         <div className="mt-3 flex items-center gap-3">

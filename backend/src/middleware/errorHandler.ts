@@ -19,9 +19,17 @@ export function errorHandler(
    
   console.error("❌ Unhandled error:", err);
 
-  res.status(500).json({
+  const maybeStatus = (err as unknown as { status?: unknown }).status;
+  const status =
+    typeof maybeStatus === "number" && maybeStatus >= 400 && maybeStatus < 600
+      ? maybeStatus
+      : 500;
+
+  res.status(status).json({
     success: false,
     message:
-      process.env.NODE_ENV === "production" ? "Internal server error" : err.message,
+      status >= 500 && process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : err.message,
   });
 }

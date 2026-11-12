@@ -18,3 +18,14 @@ if (env.DATABASE_URL) {
 }
 
 export { db };
+
+/**
+ * Returns the Drizzle client or throws a clear error when the database
+ * has not been configured yet.
+ */
+export function getDb(): NeonHttpDatabase<typeof schema> {
+  if (!db) {
+    throw new Error("Database is not configured - set DATABASE_URL in backend/.env");
+  }
+  return db;
+}

@@ -4,8 +4,8 @@ import StarterKit from "@tiptap/starter-kit";
 interface RichTextEditorProps {
   /** Initial HTML content. */
   content?: string;
-  /** Called with the updated HTML whenever the document changes. */
-  onChange?: (html: string) => void;
+  /** Called with the updated HTML and Tiptap JSON whenever the document changes. */
+  onChange?: (payload: { html: string; json: unknown }) => void;
   editable?: boolean;
 }
 
@@ -24,7 +24,7 @@ export function RichTextEditor({
     editable,
     immediatelyRender: false,
     onUpdate: ({ editor: current }) => {
-      onChange?.(current.getHTML());
+      onChange?.({ html: current.getHTML(), json: current.getJSON() });
     },
   });
 

@@ -32,6 +32,18 @@ export function RootLayout() {
             >
               Home
             </NavLink>
+            <NavLink
+              to="/submit"
+              className={({ isActive }) =>
+                `rounded-md px-3 py-1.5 font-medium transition-colors ${
+                  isActive
+                    ? "bg-sky-100 text-sky-700"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`
+              }
+            >
+              Submit
+            </NavLink>
           </nav>
         </div>
       </header>
