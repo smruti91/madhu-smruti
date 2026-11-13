@@ -3,7 +3,7 @@ import type { ApiSuccess } from "../types/api";
 import type { UploadedImage } from "../types/submission";
 
 /**
- * Image upload API module (multipart/form-data -> Cloudinary).
+ * Image upload API module (multipart/form-data -> ImageKit).
  */
 export async function uploadImage(file: File): Promise<UploadedImage> {
   const formData = new FormData();

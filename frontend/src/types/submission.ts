@@ -17,7 +17,7 @@ export interface WriteupInput {
 
 export interface PaintingInput {
   imageUrl: string;
-  cloudinaryPublicId?: string;
+  imagekitFileId?: string;
   caption?: string;
 }
 
@@ -42,7 +42,7 @@ export interface SubmissionCreated {
 
 export interface UploadedImage {
   imageUrl: string;
-  cloudinaryPublicId: string;
+  imagekitFileId: string;
   bytes: number;
   format: string;
 }

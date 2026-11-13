@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import { env } from "./config/env";
 import "./config/db";
-import "./config/cloudinary";
+import "./config/imagekit";
 import apiRoutes from "./routes";
 import { requestLogger } from "./middleware/requestLogger";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler";

@@ -74,10 +74,10 @@ export function HomePage() {
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Cloudinary</dt>
+              <dt className="text-slate-500">ImageKit</dt>
               <dd>
-                <Badge tone={data.cloudinary === "configured" ? "green" : "amber"}>
-                  {data.cloudinary}
+                <Badge tone={data.imagekit === "configured" ? "green" : "amber"}>
+                  {data.imagekit}
                 </Badge>
               </dd>
             </div>

@@ -4,7 +4,7 @@ import { submissions } from "./submissions";
 /**
  * Images attached to a submission (paintings, or photos alongside writeups).
  *
- * Only the Cloudinary URL and public id are stored here - no image binary
+ * Only the ImageKit URL and file id are stored here - no image binary
  * data lives in PostgreSQL.
  */
 export const submissionImages = pgTable(
@@ -15,7 +15,7 @@ export const submissionImages = pgTable(
       .notNull()
       .references(() => submissions.id, { onDelete: "cascade" }),
     imageUrl: text("image_url").notNull(),
-    cloudinaryPublicId: varchar("cloudinary_public_id", { length: 255 }),
+    imagekitFileId: varchar("imagekit_file_id", { length: 255 }),
     caption: varchar("caption", { length: 300 }),
     displayOrder: integer("display_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

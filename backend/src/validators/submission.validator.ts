@@ -21,9 +21,9 @@ export const writeupInputSchema = z.object({
 });
 
 export const paintingInputSchema = z.object({
-  // Must come from the upload endpoint (Cloudinary) - never raw binary in JSON
+  // Must come from the upload endpoint (ImageKit) - never raw binary in JSON
   imageUrl: z.string().url("A valid image URL is required"),
-  cloudinaryPublicId: z.string().max(255).optional(),
+  imagekitFileId: z.string().max(255).optional(),
   caption: z.string().max(300).optional(),
 });
 

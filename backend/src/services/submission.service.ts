@@ -28,7 +28,7 @@ export interface CreateSubmissionInput {
   };
   painting?: {
     imageUrl: string;
-    cloudinaryPublicId?: string;
+    imagekitFileId?: string;
     caption?: string;
   };
 }
@@ -127,7 +127,7 @@ export async function createSubmission(
     await db.insert(submissionImages).values({
       submissionId: submission.id,
       imageUrl: input.painting.imageUrl,
-      cloudinaryPublicId: input.painting.cloudinaryPublicId ?? null,
+      imagekitFileId: input.painting.imagekitFileId ?? null,
       caption: input.painting.caption ?? null,
       displayOrder: 0,
     });

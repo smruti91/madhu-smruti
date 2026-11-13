@@ -15,10 +15,8 @@ const envSchema = z.object({
   // Neon PostgreSQL - optional until the database is provisioned
   DATABASE_URL: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 
-  // Cloudinary - optional until image upload features are implemented
-  CLOUDINARY_CLOUD_NAME: z.preprocess(emptyToUndefined, z.string().optional()),
-  CLOUDINARY_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
-  CLOUDINARY_API_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  // ImageKit - optional until image upload features are implemented
+  IMAGEKIT_PRIVATE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
 const parsed = envSchema.safeParse(process.env);

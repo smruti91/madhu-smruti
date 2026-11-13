@@ -11,7 +11,7 @@ interface RichTextEditorProps {
 
 /**
  * Reusable Tiptap rich text editor wrapper.
- * Extensions can be extended per feature (e.g. images via Cloudinary URLs).
+ * Extensions can be extended per feature (e.g. images via ImageKit URLs).
  */
 export function RichTextEditor({
   content = "",

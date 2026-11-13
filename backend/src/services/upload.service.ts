@@ -1,63 +1,54 @@
-import { v2 as cloudinary } from "cloudinary";
-import { env } from "../config/env";
+import { toFile } from "@imagekit/nodejs";
+import { getImageKit } from "../config/imagekit";
 
 export interface UploadResult {
   imageUrl: string;
-  cloudinaryPublicId: string;
+  imagekitFileId: string;
   bytes: number;
   format: string;
 }
 
-const CLOUDINARY_FOLDER = "madhu-smruti/submissions";
+const IMAGEKIT_FOLDER = "madhu-smruti/submissions";
 
 /**
- * Upload an image buffer to Cloudinary.
- * Returns URL + public id; binaries are never persisted in the database.
+ * Upload an image buffer to ImageKit.
+ * Returns URL + fileId; binaries are never persisted in the database.
  */
 export async function uploadImage(
   buffer: Buffer,
   originalName: string
 ): Promise<UploadResult> {
-  if (!env.CLOUDINARY_CLOUD_NAME || !env.CLOUDINARY_API_KEY || !env.CLOUDINARY_API_SECRET) {
+  const imagekit = getImageKit();
+
+  const file = await toFile(buffer, originalName);
+
+  let result;
+  try {
+    result = await imagekit.files.upload({
+      file,
+      fileName: originalName,
+      folder: IMAGEKIT_FOLDER,
+      useUniqueFileName: true,
+    });
+  } catch (err) {
     throw Object.assign(
       new Error(
-        "Image uploads are unavailable - Cloudinary credentials are not configured"
+        `ImageKit upload failed: ${err instanceof Error ? err.message : "unknown error"} (${originalName})`
       ),
-      { status: 503 }
+      { status: 502 }
     );
   }
 
-  return new Promise<UploadResult>((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      {
-        folder: CLOUDINARY_FOLDER,
-        resource_type: "image",
-        public_id: undefined, // let Cloudinary generate a unique id
-        use_filename: false,
-        unique_filename: true,
-      },
-      (error, result) => {
-        if (error || !result) {
-          reject(
-            Object.assign(
-              new Error(
-                `Cloudinary upload failed: ${error?.message ?? "unknown error"} (${originalName})`
-              ),
-              { status: 502 }
-            )
-          );
-          return;
-        }
+  if (!result?.url || !result.fileId) {
+    throw Object.assign(new Error("ImageKit upload returned an unexpected response"), {
+      status: 502,
+    });
+  }
 
-        resolve({
-          imageUrl: result.secure_url,
-          cloudinaryPublicId: result.public_id,
-          bytes: result.bytes,
-          format: result.format,
-        });
-      }
-    );
-
-    stream.end(buffer);
-  });
+  return {
+    imageUrl: result.url,
+    imagekitFileId: result.fileId,
+    bytes: buffer.byteLength,
+    format: originalName.split(".").pop()?.toLowerCase() ?? "unknown",
+  };
 }

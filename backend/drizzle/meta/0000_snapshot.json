@@ -1,5 +1,5 @@
 {
-  "id": "ef989afe-950c-4228-bad1-59642f0417c2",
+  "id": "2a9a64d3-9734-4d16-9db1-7257620c11c6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -329,8 +329,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "cloudinary_public_id": {
-          "name": "cloudinary_public_id",
+        "imagekit_file_id": {
+          "name": "imagekit_file_id",
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false

@@ -21,7 +21,7 @@ export interface HealthStatus {
   version: string;
   environment: string;
   database: "configured" | "not_configured";
-  cloudinary: "configured" | "not_configured";
+  imagekit: "configured" | "not_configured";
   uptimeSeconds: number;
   timestamp: string;
 }

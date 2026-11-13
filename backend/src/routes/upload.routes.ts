@@ -4,7 +4,7 @@ import { uploadImageHandler } from "../controllers/upload.controller";
 
 const router = Router();
 
-// Images are held in memory only long enough to stream them to Cloudinary
+// Images are held in memory only long enough to stream them to ImageKit
 const imageUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
@@ -19,6 +19,7 @@ const imageUpload = multer({
 });
 
 // POST /api/v1/uploads/image  (multipart/form-data, field name: "image")
+// Images are held in memory only long enough to stream them to ImageKit
 router.post("/image", imageUpload.single("image"), uploadImageHandler);
 
 export default router;

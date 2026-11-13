@@ -25,7 +25,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /**
  * Submission page: contributor details + Write Up (Tiptap editor) or
- * Painting (Cloudinary image upload) depending on the chosen menu.
+ * Painting (ImageKit image upload) depending on the chosen menu.
  */
 export function SubmissionPage() {
   const [name, setName] = useState("");
@@ -43,7 +43,7 @@ export function SubmissionPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<{
     imageUrl: string;
-    cloudinaryPublicId: string;
+    imagekitFileId: string;
   } | null>(null);
   const [caption, setCaption] = useState("");
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -74,7 +74,7 @@ export function SubmissionPage() {
       const uploaded = await uploadImage(file);
       setUploadedImage({
         imageUrl: uploaded.imageUrl,
-        cloudinaryPublicId: uploaded.cloudinaryPublicId,
+        imagekitFileId: uploaded.imagekitFileId,
       });
     } catch (err) {
       setUploadError((err as Error).message);
@@ -118,7 +118,7 @@ export function SubmissionPage() {
       }
       payload.painting = {
         imageUrl: uploadedImage.imageUrl,
-        cloudinaryPublicId: uploadedImage.cloudinaryPublicId,
+        imagekitFileId: uploadedImage.imagekitFileId,
         ...(caption.trim() ? { caption: caption.trim() } : {}),
       };
     }

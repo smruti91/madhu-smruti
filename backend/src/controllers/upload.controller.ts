@@ -4,14 +4,14 @@ import { uploadImage, type UploadResult } from "../services/upload.service";
 
 export interface UploadedImage {
   imageUrl: string;
-  cloudinaryPublicId: string;
+  imagekitFileId: string;
   bytes: number;
   format: string;
 }
 
 /**
  * POST /api/v1/uploads/image
- * Uploads an image buffer to Cloudinary and returns its URL + public id.
+ * Uploads an image buffer to ImageKit and returns its URL + fileId.
  * Image binary data is never stored in PostgreSQL.
  */
 export async function uploadImageHandler(

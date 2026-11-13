@@ -2,7 +2,7 @@
 
 A memorial web application for **MDRAFM**.
 
-Full-stack monorepo: **React + TypeScript + Vite** frontend, **Node.js + Express + TypeScript** backend, **Neon PostgreSQL** with **Drizzle ORM**, **Tiptap** rich text editing, and **Cloudinary** image storage.
+Full-stack monorepo: **React + TypeScript + Vite** frontend, **Node.js + Express + TypeScript** backend, **Neon PostgreSQL** with **Drizzle ORM**, **Tiptap** rich text editing, and **ImageKit** image storage.
 
 > Status: project scaffold only — business functionality is not implemented yet.
 
@@ -25,7 +25,7 @@ Full-stack monorepo: **React + TypeScript + Vite** frontend, **Node.js + Express
 | Editor    | Tiptap (`@tiptap/react` + `@tiptap/starter-kit`)                   |
 | Backend   | Node.js, Express, TypeScript, Zod (validation)                     |
 | Database  | Neon PostgreSQL via Drizzle ORM (`@neondatabase/serverless`)       |
-| Images    | Cloudinary                                                        |
+| Images    | ImageKit (`@imagekit/nodejs`)                                      |
 | Quality   | ESLint (typescript-eslint), Prettier                               |
 | Deploy    | Vercel (frontend), Render (backend), GitHub (source control)       |
 
@@ -34,7 +34,7 @@ Full-stack monorepo: **React + TypeScript + Vite** frontend, **Node.js + Express
 - Node.js ≥ 20
 - npm ≥ 10
 - A [Neon](https://neon.tech) PostgreSQL connection string (optional during scaffold)
-- A [Cloudinary](https://cloudinary.com) account (optional during scaffold)
+- An [ImageKit](https://imagekit.io) account (optional until image uploads are used)
 
 ## Getting Started
 
@@ -93,7 +93,7 @@ Browser ── Axios ──▶ Express API (/api/v1)
                      ├── services/       business logic
                      ├── middleware/     errors, validation, logging
                      ├── validators/     Zod schemas
-                     ├── config/         env, Drizzle (Neon), Cloudinary
+                     ├── config/         env, Drizzle (Neon), ImageKit
                      └── db/schema/      Drizzle table definitions
 ```
 
@@ -116,13 +116,13 @@ Schema lives in `backend/src/db/schema/` (one file per table + relations). Migra
 
 ```
 contributors ──< submissions ─── 1 │ writeup_contents   (Tiptap JSONB + HTML snapshot)
-               │            ├──< submission_images  (Cloudinary URL + public id only)
+               │            ├──< submission_images  (ImageKit URL + fileId only)
                │            └──< submission_history (audit trail)
 admins
 ```
 
 All tables use UUID primary keys. Enums enforce submission type / language / status.
-`reference_number` and admin `email` are unique. Image binaries live in Cloudinary, never in PostgreSQL.
+`reference_number` and admin `email` are unique. Image binaries live in ImageKit, never in PostgreSQL.
 
 ### Applying migrations to Neon
 
@@ -148,9 +148,7 @@ npm run db:seed
 | `PORT`                   | Yes      | Server port (default 5000)                 |
 | `CORS_ORIGIN`            | Yes      | Comma-separated allowed origins            |
 | `DATABASE_URL`           | Later    | Neon PostgreSQL connection string          |
-| `CLOUDINARY_CLOUD_NAME`  | Later    | Cloudinary cloud name                      |
-| `CLOUDINARY_API_KEY`     | Later    | Cloudinary API key                         |
-| `CLOUDINARY_API_SECRET`  | Later    | Cloudinary API secret                      |
+| `IMAGEKIT_PRIVATE_KEY`   | Later    | ImageKit private key (server-side uploads) |
 | `ADMIN_NAME`             | Seeding  | First admin name (`db:seed`)               |
 | `ADMIN_EMAIL`            | Seeding  | First admin email (unique)                 |
 | `ADMIN_PASSWORD`         | Seeding  | First admin password (min 8 chars)         |

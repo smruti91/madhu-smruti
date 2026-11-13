@@ -38,7 +38,7 @@ CREATE TABLE "submission_images" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"submission_id" uuid NOT NULL,
 	"image_url" text NOT NULL,
-	"cloudinary_public_id" varchar(255),
+	"imagekit_file_id" varchar(255),
 	"caption" varchar(300),
 	"display_order" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
