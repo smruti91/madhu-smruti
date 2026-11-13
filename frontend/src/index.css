@@ -1,1 +1,74 @@
 @import "tailwindcss";
+
+/*
+ * MADHU SMRUTI design tokens — editorial literary magazine.
+ * Cream paper ground, deep maroon ink, muted gold foil, subtle leaf green.
+ */
+@theme {
+  /* Cream / off-white paper */
+  --color-cream-50: #fdfbf5;
+  --color-cream-100: #faf5ea;
+  --color-cream-200: #f3ecdb;
+  --color-cream-300: #e9dfc9;
+  --color-cream-400: #dccfb2;
+
+  /* Deep maroon (brand ink) */
+  --color-maroon-100: #f4e5e7;
+  --color-maroon-200: #e6c9cc;
+  --color-maroon-300: #d2a3a8;
+  --color-maroon-500: #8a2f3b;
+  --color-maroon-600: #72212c;
+  --color-maroon-700: #5c1a24;
+  --color-maroon-800: #4a121b;
+  --color-maroon-900: #380d14;
+
+  /* Muted gold foil */
+  --color-gold-100: #f7eed8;
+  --color-gold-200: #eddcb2;
+  --color-gold-300: #ddc384;
+  --color-gold-400: #d0b066;
+  --color-gold-500: #c09a3e;
+  --color-gold-600: #a37c2a;
+  --color-gold-700: #83631f;
+
+  /* Subtle leaf green (highlights) */
+  --color-leaf-100: #e7efe9;
+  --color-leaf-200: #ccdfd3;
+  --color-leaf-400: #6b9377;
+  --color-leaf-500: #4e7a5f;
+  --color-leaf-600: #3e6b4f;
+  --color-leaf-700: #2f5340;
+  --color-leaf-800: #244133;
+
+  /* Warm ink text */
+  --color-ink-400: #8d7f6e;
+  --color-ink-500: #6f6152;
+  --color-ink-700: #4a3d30;
+  --color-ink-900: #2a2018;
+
+  /* Typography — Latin display + body serifs with Odia/Devanagari fallbacks */
+  --font-display: "Playfair Display", "Noto Serif Odia", "Noto Serif Devanagari", Georgia, serif;
+  --font-body: "Lora", "Noto Serif Odia", "Noto Serif Devanagari", Georgia, serif;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-cream-100);
+    color: var(--color-ink-900);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-gold-200);
+    color: var(--color-maroon-800);
+  }
+}
+
+@utility text-odia {
+  font-family: "Noto Serif Odia", var(--font-display);
+}
+
+@utility text-devanagari {
+  font-family: "Noto Serif Devanagari", var(--font-display);
+}

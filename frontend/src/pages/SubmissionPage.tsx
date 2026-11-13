@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2,
   Copy,
@@ -50,12 +50,17 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
  * Painting (ImageKit image upload) depending on the chosen menu.
  */
 export function SubmissionPage() {
+  // Landing cards deep-link here with ?type=writeup | ?type=painting
+  const [searchParams] = useSearchParams();
+  const typeParam = searchParams.get("type");
+  const initialType: SubmissionType = typeParam === "painting" ? "painting" : "writeup";
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [designation, setDesignation] = useState("");
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState("english");
-  const [submissionType, setSubmissionType] = useState<SubmissionType>("writeup");
+  const [submissionType, setSubmissionType] = useState<SubmissionType>(initialType);
 
   // Writeup state
   const [editorHtml, setEditorHtml] = useState("");
@@ -197,7 +202,7 @@ export function SubmissionPage() {
             <button
               type="button"
               onClick={() => navigator.clipboard.writeText(result.editToken)}
-              className="ml-auto text-slate-400 hover:text-sky-600"
+              className="ml-auto text-slate-400 hover:text-gold-600"
               aria-label="Copy edit token"
             >
               <Copy className="h-4 w-4" />
@@ -226,8 +231,8 @@ export function SubmissionPage() {
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8">
       <header>
-        <h1 className="text-2xl font-bold">Submit your contribution</h1>
-        <p className="mt-1 text-sm text-slate-500">
+        <h1 className="font-display text-3xl font-bold text-maroon-800">Submit your contribution</h1>
+        <p className="mt-1 text-sm text-ink-500">
           Share a writeup or a painting for MADHU SMRUTI.
         </p>
       </header>
@@ -293,8 +298,8 @@ export function SubmissionPage() {
             onClick={() => setSubmissionType("writeup")}
             className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
               submissionType === "writeup"
-                ? "border-sky-600 bg-sky-50 text-sky-700"
-                : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                ? "border-maroon-600 bg-maroon-100 text-maroon-700"
+                : "border-gold-300 text-ink-500 hover:bg-cream-200"
             }`}
           >
             <PenLine className="h-5 w-5" aria-hidden="true" />
@@ -305,8 +310,8 @@ export function SubmissionPage() {
             onClick={() => setSubmissionType("painting")}
             className={`flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-colors ${
               submissionType === "painting"
-                ? "border-sky-600 bg-sky-50 text-sky-700"
-                : "border-slate-300 text-slate-600 hover:bg-slate-50"
+                ? "border-maroon-600 bg-maroon-100 text-maroon-700"
+                : "border-gold-300 text-ink-500 hover:bg-cream-200"
             }`}
           >
             <Palette className="h-5 w-5" aria-hidden="true" />
@@ -360,7 +365,7 @@ export function SubmissionPage() {
                 </button>
               </div>
             ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center transition-colors hover:border-sky-400 hover:bg-sky-50">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gold-400 bg-cream-100 px-6 py-10 text-center transition-colors hover:border-gold-500 hover:bg-gold-100">
                 <ImagePlus className="h-8 w-8 text-slate-400" aria-hidden="true" />
                 <span className="text-sm font-medium text-slate-600">
                   Click to upload your painting

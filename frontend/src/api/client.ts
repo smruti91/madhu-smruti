@@ -8,6 +8,7 @@ import type { ApiResponse } from "../types/api";
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
+  withCredentials: true, // required for the HTTP-only admin session cookie
   headers: {
     "Content-Type": "application/json",
   },
