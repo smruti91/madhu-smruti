@@ -20,7 +20,7 @@ export interface HealthStatus {
   service: string;
   version: string;
   environment: string;
-  database: "configured" | "not_configured";
+  database: "connected" | "not_configured" | "error";
   imagekit: "configured" | "not_configured";
   uptimeSeconds: number;
   timestamp: string;

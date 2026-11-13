@@ -10,6 +10,13 @@ export interface ContributorInput {
   designation?: string;
 }
 
+export interface ContributorRegistered {
+  id: string;
+  name: string;
+  phone: string;
+  designation?: string | null;
+}
+
 export interface WriteupInput {
   editorJson: unknown;
   htmlContent: string;
@@ -22,7 +29,7 @@ export interface PaintingInput {
 }
 
 export interface CreateSubmissionPayload {
-  contributor: ContributorInput;
+  contributorId: string;
   title: string;
   language: SubmissionLanguage;
   submissionType: SubmissionType;
@@ -38,6 +45,9 @@ export interface SubmissionCreated {
   submissionType: SubmissionType;
   language: SubmissionLanguage;
   createdAt: string;
+  contributor: ContributorRegistered;
+  /** Raw private edit token - shown once, never stored on the server. */
+  editToken: string;
 }
 
 export interface UploadedImage {

@@ -1,40 +1,55 @@
 import type { NextFunction, Request, Response } from "express";
 import type { ZodTypeAny } from "zod";
+import { HttpError } from "../utils/errors";
 
-interface ValidatedRequest {
-  body?: unknown;
-  query?: unknown;
-  params?: unknown;
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface Request {
+      /** Parsed and transformed query data attached by validateQuery(). */
+      validatedQuery?: unknown;
+    }
+  }
 }
 
 /**
- * Generic Zod validation middleware.
- *
- * Usage:
- *   router.post("/", validate(createMemorySchema), controller.create);
- *
- * The schema should be shaped like: z.object({ body: ..., query: ..., params: ... })
- * (each part optional).
+ * Zod validation middleware for the request body.
+ * Parsed (and transformed) data replaces req.body.
  */
-export function validate(schema: ZodTypeAny) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const candidate: ValidatedRequest = {
-      body: req.body,
-      query: req.query,
-      params: req.params,
-    };
-
-    const result = schema.safeParse(candidate);
+export function validateBody(schema: ZodTypeAny) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.body);
 
     if (!result.success) {
-      res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: result.error.flatten().fieldErrors,
-      });
+      next(
+        HttpError.badRequest("Validation failed", result.error.flatten().fieldErrors)
+      );
       return;
     }
 
+    req.body = result.data;
+    next();
+  };
+}
+
+/**
+ * Zod validation middleware for the query string.
+ *
+ * Express 5 exposes req.query as a getter, so the validated result is
+ * attached as req.validatedQuery instead of replacing req.query.
+ */
+export function validateQuery(schema: ZodTypeAny) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.query);
+
+    if (!result.success) {
+      next(
+        HttpError.badRequest("Invalid query parameters", result.error.flatten().fieldErrors)
+      );
+      return;
+    }
+
+    req.validatedQuery = result.data;
     next();
   };
 }

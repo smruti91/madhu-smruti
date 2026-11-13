@@ -1,18 +1,40 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, FileCheck2, ImagePlus, Palette, PenLine, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  FileCheck2,
+  ImagePlus,
+  KeyRound,
+  Palette,
+  PenLine,
+  X,
+} from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { Spinner } from "../components/ui/Spinner";
 import { RichTextEditor } from "../components/editor/RichTextEditor";
 import { createSubmission } from "../api/submissions";
+import { registerContributor } from "../api/contributors";
 import { uploadImage } from "../api/uploads";
 import type {
   CreateSubmissionPayload,
   SubmissionCreated,
   SubmissionType,
 } from "../types/submission";
+
+const EDIT_TOKENS_STORAGE_KEY = "madhu-smruti-edit-tokens";
+
+function persistEditToken(submissionId: string, editToken: string): void {
+  try {
+    const stored = JSON.parse(localStorage.getItem(EDIT_TOKENS_STORAGE_KEY) ?? "{}");
+    stored[submissionId] = editToken;
+    localStorage.setItem(EDIT_TOKENS_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // storage unavailable - the token is still shown on screen
+  }
+}
 
 const languageOptions = [
   { value: "english", label: "English" },
@@ -95,11 +117,7 @@ export function SubmissionPage() {
     setError(null);
 
     const payload: CreateSubmissionPayload = {
-      contributor: {
-        name: name.trim(),
-        phone: phone.trim(),
-        ...(designation.trim() ? { designation: designation.trim() } : {}),
-      },
+      contributorId: "",
       title: title.trim(),
       language: language as CreateSubmissionPayload["language"],
       submissionType,
@@ -125,7 +143,17 @@ export function SubmissionPage() {
 
     setSubmitting(true);
     try {
+      // Step 1: register (or update) the contributor by phone number
+      const contributor = await registerContributor({
+        name: name.trim(),
+        phone: phone.trim(),
+        ...(designation.trim() ? { designation: designation.trim() } : {}),
+      });
+
+      // Step 2: create the draft submission for that contributor
+      payload.contributorId = contributor.id;
       const created = await createSubmission(payload);
+      persistEditToken(created.id, created.editToken);
       setResult(created);
     } catch (err) {
       setError((err as Error).message);
@@ -163,8 +191,24 @@ export function SubmissionPage() {
             <span className="font-semibold text-slate-700">Reference number</span>
           </div>
           <p className="mt-1 font-mono text-lg text-green-700">{result.referenceNumber}</p>
-          <p className="mt-3 text-slate-500">
-            Keep this reference number to track your {result.submissionType}.
+          <div className="mt-3 flex items-center gap-2 border-t border-green-100 pt-3">
+            <KeyRound className="h-4 w-4 text-amber-600" aria-hidden="true" />
+            <span className="font-semibold text-slate-700">Your edit token</span>
+            <button
+              type="button"
+              onClick={() => navigator.clipboard.writeText(result.editToken)}
+              className="ml-auto text-slate-400 hover:text-sky-600"
+              aria-label="Copy edit token"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          </div>
+          <p className="mt-1 break-all font-mono text-xs text-amber-700">
+            {result.editToken}
+          </p>
+          <p className="mt-2 text-xs text-red-600">
+            Save this token now (it is also stored in this browser). It is required to
+            view or edit your submission later and cannot be recovered.
           </p>
         </div>
         <div className="mt-6 flex justify-center gap-3">

@@ -17,6 +17,12 @@ const envSchema = z.object({
 
   // ImageKit - optional until image upload features are implemented
   IMAGEKIT_PRIVATE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  IMAGEKIT_PUBLIC_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  IMAGEKIT_URL_ENDPOINT: z.preprocess(emptyToUndefined, z.string().optional()),
+
+  // Admin authentication (JWT session cookies).
+  // REQUIRED in production - the auth module refuses to issue sessions without it.
+  ADMIN_JWT_SECRET: z.preprocess(emptyToUndefined, z.string().min(32).optional()),
 });
 
 const parsed = envSchema.safeParse(process.env);

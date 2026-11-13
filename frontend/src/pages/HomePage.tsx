@@ -68,7 +68,7 @@ export function HomePage() {
             <div>
               <dt className="text-slate-500">Database</dt>
               <dd>
-                <Badge tone={data.database === "configured" ? "green" : "amber"}>
+                <Badge tone={data.database === "connected" ? "green" : "amber"}>
                   {data.database}
                 </Badge>
               </dd>

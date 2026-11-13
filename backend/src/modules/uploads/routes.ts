@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
-import { uploadImageHandler } from "../controllers/upload.controller";
+import { signUploadHandler, uploadImageHandler } from "./controller";
+import { editLimiter } from "../../middleware/rateLimit";
 
 const router = Router();
 
@@ -18,8 +19,10 @@ const imageUpload = multer({
   },
 });
 
-// POST /api/v1/uploads/image  (multipart/form-data, field name: "image")
-// Images are held in memory only long enough to stream them to ImageKit
+// POST /api/uploads/image (multipart/form-data, field name: "image")
 router.post("/image", imageUpload.single("image"), uploadImageHandler);
+
+// POST /api/uploads/sign - client-side upload authorization
+router.post("/sign", editLimiter, signUploadHandler);
 
 export default router;
