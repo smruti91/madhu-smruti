@@ -49,8 +49,13 @@ duplicate (HTTP 201).
 | Field          | Type   | Required | Notes                                  |
 | -------------- | ------ | -------- | -------------------------------------- |
 | `name`         | string | yes      | 1–120 chars                            |
-| `phone`        | string | yes      | 5–20 chars, digits `+ - space ( )`     |
+| `phone`        | string | yes      | Indian mobile — normalized to E.164 `+91XXXXXXXXXX` (accepts `98765 43210`, `09876543210`, `+919876543210`) |
 | `designation`  | string | no       | ≤ 120 chars                            |
+
+**Contributor reuse strategy**: the normalized mobile number is the natural
+contributor key. Re-registering the same number updates name/designation
+instead of creating a duplicate (HTTP 200 vs 201), so no account or OTP is
+needed.
 
 **Response** `201` (created) / `200` (updated)
 
@@ -83,7 +88,7 @@ server-side. It cannot be recovered.
 A `writeup` submission requires `writeup` and rejects `painting` (and
 vice-versa).
 
-**Response** `201`
+**Response** `201` — also used as **PUT** response.
 
 ```json
 {
@@ -95,11 +100,16 @@ vice-versa).
     "language": "odia",
     "status": "draft",
     "createdAt": "...", "updatedAt": "...", "submittedAt": null,
-    "contributor": { "id": "...", "name": "...", "phone": "...", "designation": "..." }
+    "contributor": { "id": "...", "name": "...", "phone": "+919876543210", "designation": "..." }
   },
   "editToken": "d1INSzIAA32w0xB5YpF2CE5F13Gl-XwJJMsqn2aadt4"
 }
 ```
+
+The client builds the contributor's **private resume link** from these values:
+`<frontend>/resume/<id>?token=<editToken>`. The token is the only access
+credential — it is shown once, stored server-side as a SHA-256 hash, and can
+never be recovered.
 
 **Errors** `400` validation / unknown contributor · `429` · `503`
 
@@ -144,7 +154,7 @@ Requires an edit credential (see GET).
 | `language`     | enum   | `english` \| `hindi` \| `odia`                   |
 | `writeup`      | object | `{ editorJson, htmlContent }` (writeup type only) |
 | `painting`     | object | `{ imageUrl, imagekitFileId?, caption? }` (painting type only) |
-| `contributor`  | object | `{ name?, phone?, designation? }` — updates the linked contributor |
+| `contributor`  | object | `{ name?, phone?, designation? }` — updates the linked contributor; phone is normalized to `+91XXXXXXXXXX` |
 
 **Response** `200` — full detail (as GET). Also appends an `updated` history entry.
 

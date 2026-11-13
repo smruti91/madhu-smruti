@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { indianMobileSchema } from "../contributors/validator";
 
 const writeupSchema = z.object({
   // Tiptap ProseMirror document (JSONB)
@@ -61,14 +62,9 @@ export const updateSubmissionSchema = z
     painting: paintingSchema.optional(),
     contributor: z
       .object({
-        name: z.string().min(1).max(120).optional(),
-        phone: z
-          .string()
-          .min(5)
-          .max(20)
-          .regex(/^[0-9+\-\s()]+$/)
-          .optional(),
-        designation: z.string().max(120).optional(),
+        name: z.string().trim().min(1).max(120).optional(),
+        phone: indianMobileSchema.optional(),
+        designation: z.string().trim().max(120).optional(),
       })
       .optional(),
   })

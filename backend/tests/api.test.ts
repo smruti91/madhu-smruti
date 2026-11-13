@@ -15,8 +15,9 @@ const hasDb = Boolean(process.env.DATABASE_URL);
 const d = describe.skipIf(!hasDb);
 
 const runId = Date.now().toString(36);
-// Phone must contain digits only (validated server-side)
-const phone = `+91${Date.now()}`.slice(0, 20);
+// Valid Indian mobile: 10 digits starting 6-9, unique per run
+const localPhone = `9${String(Date.now()).slice(-9)}`;
+const phone = `+91${localPhone}`;
 const adminEmail = `test-admin-${runId}@mdrafm.test`;
 
 let contributorId = "";
@@ -67,6 +68,7 @@ d("Health & public endpoints", () => {
       .send({ name: "Test Contributor", phone, designation: "Teacher" });
     expect(first.status).toBe(201);
     expect(first.body.data.id).toBeDefined();
+    expect(first.body.data.phone).toBe(phone);
 
     const second = await request(app)
       .post("/api/contributors")
@@ -75,6 +77,26 @@ d("Health & public endpoints", () => {
     expect(second.body.data.id).toBe(first.body.data.id);
 
     contributorId = first.body.data.id;
+  });
+
+  it("normalizes Indian mobile numbers and reuses the same contributor", async () => {
+    // Same number in trunk-prefix format must resolve to the same contributor
+    const res = await request(app)
+      .post("/api/contributors")
+      .send({ name: "Test Contributor", phone: `0${localPhone}` });
+    expect(res.status).toBe(200);
+    expect(res.body.data.phone).toBe(phone);
+    expect(res.body.data.id).toBe(contributorId);
+  });
+
+  it("rejects non-Indian-mobile numbers", async () => {
+    for (const bad of ["12345", "1234567890", "987654321", "+9198765432101"]) {
+      const res = await request(app)
+        .post("/api/contributors")
+        .send({ name: "Invalid Phone", phone: bad });
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    }
   });
 
   it("rejects invalid contributor payloads", async () => {
@@ -126,6 +148,11 @@ d("Submission lifecycle with edit tokens", () => {
       writeup: { editorJson: {}, htmlContent: "<p>x</p>" },
     });
     expect(res.status).toBe(400);
+  });
+
+  it("does not expose drafts through any public listing route", async () => {
+    const res = await request(app).get("/api/v1/submissions");
+    expect(res.status).toBe(404);
   });
 
   it("denies access without a token", async () => {

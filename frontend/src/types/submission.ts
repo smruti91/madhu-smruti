@@ -56,3 +56,51 @@ export interface UploadedImage {
   bytes: number;
   format: string;
 }
+
+export interface WriteupContent {
+  editorJson: unknown;
+  htmlContent: string;
+  updatedAt: string;
+}
+
+export interface PaintingImage {
+  id: string;
+  imageUrl: string;
+  caption: string | null;
+  displayOrder: number;
+  createdAt: string;
+}
+
+export interface HistoryEntry {
+  id: string;
+  action: string;
+  remarks: string | null;
+  changedBy: string;
+  createdAt: string;
+}
+
+/** Full private detail returned by GET /submissions/:id (token required). */
+export interface SubmissionDetail {
+  id: string;
+  referenceNumber: string;
+  submissionType: SubmissionType;
+  title: string;
+  language: SubmissionLanguage;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  submittedAt: string | null;
+  contributor: ContributorRegistered;
+  writeup: WriteupContent | null;
+  images: PaintingImage[] | null;
+  history: HistoryEntry[];
+}
+
+/** Update payload for PUT /submissions/:id. */
+export interface UpdateSubmissionPayload {
+  title?: string;
+  language?: SubmissionLanguage;
+  writeup?: WriteupInput;
+  painting?: PaintingInput;
+  contributor?: Partial<ContributorInput>;
+}
