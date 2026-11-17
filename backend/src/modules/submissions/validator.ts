@@ -17,7 +17,9 @@ const paintingSchema = z.object({
 export const createSubmissionSchema = z
   .object({
     contributorId: z.string().uuid("A registered contributorId is required"),
-    title: z.string().min(1, "Title is required").max(200),
+    title: z.string().trim().min(1, "Title is required").max(200),
+    subtitle: z.string().trim().max(200).optional(),
+    category: z.string().trim().max(80).optional(),
     language: z.enum(["english", "hindi", "odia"]),
     submissionType: z.enum(["writeup", "painting"]),
     writeup: writeupSchema.optional(),
@@ -56,8 +58,13 @@ export const createSubmissionSchema = z
 
 export const updateSubmissionSchema = z
   .object({
-    title: z.string().min(1).max(200).optional(),
+    title: z.string().trim().min(1).max(200).optional(),
+    subtitle: z.string().trim().max(200).optional(),
+    category: z.string().trim().max(80).optional(),
     language: z.enum(["english", "hindi", "odia"]).optional(),
+    // True when the request comes from the editor's debounced autosave -
+    // skips the audit-history entry (autosave is not a meaningful event).
+    autosave: z.boolean().optional(),
     writeup: writeupSchema.optional(),
     painting: paintingSchema.optional(),
     contributor: z
@@ -71,6 +78,8 @@ export const updateSubmissionSchema = z
   .refine(
     (body) =>
       body.title !== undefined ||
+      body.subtitle !== undefined ||
+      body.category !== undefined ||
       body.language !== undefined ||
       body.writeup !== undefined ||
       body.painting !== undefined ||

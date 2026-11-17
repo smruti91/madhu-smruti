@@ -26,6 +26,8 @@ export const submissions = pgTable(
       .references(() => contributors.id, { onDelete: "cascade" }),
     submissionType: submissionTypeEnum("submission_type").notNull(),
     title: varchar("title", { length: 200 }).notNull(),
+    subtitle: varchar("subtitle", { length: 200 }),
+    category: varchar("category", { length: 80 }),
     language: submissionLanguageEnum("language").notNull(),
     status: submissionStatusEnum("status").default("draft").notNull(),
     editTokenHash: varchar("edit_token_hash", { length: 128 }),

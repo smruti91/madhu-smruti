@@ -72,3 +72,170 @@
 @utility text-devanagari {
   font-family: "Noto Serif Devanagari", var(--font-display);
 }
+
+/* ---------------------------------------------------------------------------
+ * Writeup editor (Tiptap)
+ * ------------------------------------------------------------------------- */
+
+/* The ProseMirror editable surface */
+.writeup-prose .ProseMirror {
+  outline: none;
+  min-height: inherit;
+}
+
+.writeup-prose .ProseMirror p {
+  margin: 0.5rem 0;
+}
+
+.writeup-prose .ProseMirror h2 {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-maroon-800);
+  margin: 1.1rem 0 0.5rem;
+}
+
+.writeup-prose .ProseMirror h3 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-maroon-800);
+  margin: 1rem 0 0.4rem;
+}
+
+.writeup-prose .ProseMirror blockquote {
+  border-left: 3px solid var(--color-gold-400);
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: var(--color-ink-700);
+  font-style: italic;
+}
+
+.writeup-prose .ProseMirror ul,
+.writeup-prose .ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.writeup-prose .ProseMirror ul {
+  list-style: disc;
+}
+
+.writeup-prose .ProseMirror ol {
+  list-style: decimal;
+}
+
+.writeup-prose .ProseMirror a {
+  color: var(--color-maroon-600);
+  text-decoration: underline;
+}
+
+.writeup-prose .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Gap cursor when the document ends with an image */
+.writeup-prose .ProseMirror .ProseMirror-gapcursor::after {
+  border-top-color: var(--color-ink-900);
+}
+
+/* Editor image figure node (matches backend sanitize.ts vocabulary) */
+.writeup-prose .editor-image {
+  margin: 1rem 0;
+  max-width: 100%;
+}
+
+.writeup-prose .editor-image .editor-image-frame {
+  position: relative;
+}
+
+.writeup-prose .editor-image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+  border: 1px solid var(--color-cream-300);
+}
+
+.writeup-prose .editor-image[data-selected] .editor-image-frame img,
+.writeup-prose .ProseMirror .ProseMirror-selectednode .editor-image img {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+
+/* Floating per-image controls (align / width / delete) */
+.writeup-prose .editor-image .editor-image-controls {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  background-color: var(--color-cream-50);
+  border: 1px solid var(--color-gold-300);
+  box-shadow: 0 1px 3px rgb(42 32 24 / 0.15);
+  opacity: 0.35;
+  transition: opacity 0.15s ease;
+}
+
+.writeup-prose .editor-image:hover .editor-image-controls,
+.writeup-prose .editor-image[data-selected] .editor-image-controls {
+  opacity: 1;
+}
+
+.writeup-prose .editor-image .editor-image-controls button {
+  display: flex;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  color: var(--color-ink-700);
+}
+
+.writeup-prose .editor-image .editor-image-controls button:hover {
+  background-color: var(--color-gold-200);
+  color: var(--color-maroon-800);
+}
+
+.writeup-prose .editor-image .editor-image-controls button.is-active {
+  background-color: var(--color-maroon-600);
+  color: white;
+}
+
+.writeup-prose .editor-image .editor-image-controls select {
+  height: 1.75rem;
+  font-size: 0.75rem;
+  color: var(--color-ink-700);
+  background: transparent;
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
+}
+
+.writeup-prose .editor-image .editor-image-caption {
+  display: block;
+  width: 100%;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--color-ink-500);
+  background: transparent;
+  text-align: center;
+  outline: none;
+}
+
+.writeup-prose .editor-image .editor-image-caption::placeholder {
+  color: var(--color-ink-400);
+}
+
+/* How stored/previewed figures render (preview modal, admin review) */
+.writeup-prose figure.editor-image figcaption.editor-image-caption {
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: var(--color-ink-500);
+  text-align: center;
+}
+

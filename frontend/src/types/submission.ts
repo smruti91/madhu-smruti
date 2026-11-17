@@ -31,6 +31,8 @@ export interface PaintingInput {
 export interface CreateSubmissionPayload {
   contributorId: string;
   title: string;
+  subtitle?: string;
+  category?: string;
   language: SubmissionLanguage;
   submissionType: SubmissionType;
   writeup?: WriteupInput;
@@ -42,6 +44,8 @@ export interface SubmissionCreated {
   referenceNumber: string;
   status: string;
   title: string;
+  subtitle?: string | null;
+  category?: string | null;
   submissionType: SubmissionType;
   language: SubmissionLanguage;
   createdAt: string;
@@ -85,6 +89,8 @@ export interface SubmissionDetail {
   referenceNumber: string;
   submissionType: SubmissionType;
   title: string;
+  subtitle: string | null;
+  category: string | null;
   language: SubmissionLanguage;
   status: string;
   createdAt: string;
@@ -99,7 +105,11 @@ export interface SubmissionDetail {
 /** Update payload for PUT /submissions/:id. */
 export interface UpdateSubmissionPayload {
   title?: string;
+  subtitle?: string;
+  category?: string;
   language?: SubmissionLanguage;
+  /** True when sent by the debounced autosave (skips the audit history). */
+  autosave?: boolean;
   writeup?: WriteupInput;
   painting?: PaintingInput;
   contributor?: Partial<ContributorInput>;

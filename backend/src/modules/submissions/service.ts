@@ -134,6 +134,8 @@ export function submissionSummary(submission: Submission, contributor: Contribut
     referenceNumber: submission.referenceNumber,
     submissionType: submission.submissionType,
     title: submission.title,
+    subtitle: submission.subtitle,
+    category: submission.category,
     language: submission.language,
     status: submission.status,
     createdAt: submission.createdAt.toISOString(),
@@ -233,6 +235,8 @@ export async function createSubmission(input: CreateSubmissionInput) {
       contributorId: input.contributorId,
       submissionType: input.submissionType,
       title: input.title,
+      subtitle: input.subtitle ?? null,
+      category: input.category ?? null,
       language: input.language,
       status: "draft",
       editTokenHash: hashEditToken(editToken),
@@ -270,11 +274,13 @@ export async function updateSubmission(submission: Submission, input: UpdateSubm
 
   const db = getDb();
 
-  if (input.title || input.language) {
+  if (input.title || input.language || input.subtitle !== undefined || input.category !== undefined) {
     await db
       .update(submissions)
       .set({
         ...(input.title ? { title: input.title } : {}),
+        ...(input.subtitle !== undefined ? { subtitle: input.subtitle || null } : {}),
+        ...(input.category !== undefined ? { category: input.category || null } : {}),
         ...(input.language ? { language: input.language } : {}),
       })
       .where(eq(submissions.id, submission.id));
@@ -301,7 +307,11 @@ export async function updateSubmission(submission: Submission, input: UpdateSubm
     await upsertPrimaryImage(submission.id, input.painting);
   }
 
-  await recordHistory(submission.id, "updated", "Draft updated by contributor", "contributor");
+  // Autosave requests change content but are not audit-worthy events; only
+  // manual saves, finalization and admin actions appear in the history.
+  if (!input.autosave) {
+    await recordHistory(submission.id, "updated", "Draft updated by contributor", "contributor");
+  }
 
   const updated = await getSubmissionOrThrow(submission.id);
   const contributor = await getContributorOrThrow(submission.contributorId);

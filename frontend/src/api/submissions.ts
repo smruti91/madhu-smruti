@@ -45,3 +45,16 @@ export async function updateSubmission(
   );
   return response.data.data;
 }
+
+/** Converts a draft into a final, review-ready submission. */
+export async function finalizeSubmission(
+  submissionId: string,
+  editToken: string
+): Promise<SubmissionDetail> {
+  const response = await apiClient.post<ApiSuccess<SubmissionDetail>>(
+    `/submissions/${submissionId}/finalize`,
+    {},
+    { headers: { "X-Edit-Token": editToken } }
+  );
+  return response.data.data;
+}

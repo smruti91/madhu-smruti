@@ -80,6 +80,8 @@ server-side. It cannot be recovered.
 | ---------------- | ------ | -------- | ------------------------------------------------ |
 | `contributorId`  | UUID   | yes      | id from `POST /api/contributors`                 |
 | `title`          | string | yes      | 1–200 chars                                      |
+| `subtitle`       | string | no       | max 200 chars (writeup subtitle)                 |
+| `category`       | string | no       | max 80 chars (e.g. Reminiscence, Essay, Poem)    |
 | `language`       | enum   | yes      | `english` \| `hindi` \| `odia`                   |
 | `submissionType` | enum   | yes      | `writeup` \| `painting`                          |
 | `writeup`        | object | if writeup | `{ editorJson, htmlContent }` — Tiptap doc JSON + rendered HTML |
@@ -97,6 +99,8 @@ vice-versa).
     "referenceNumber": "MDRAFM-W-2026-0001",   // W = writeup, P = painting
     "submissionType": "writeup",
     "title": "...",
+    "subtitle": "..." | null,
+    "category": "..." | null,
     "language": "odia",
     "status": "draft",
     "createdAt": "...", "updatedAt": "...", "submittedAt": null,
@@ -151,12 +155,25 @@ Requires an edit credential (see GET).
 | Field          | Type   | Notes                                            |
 | -------------- | ------ | ------------------------------------------------ |
 | `title`        | string | 1–200 chars                                      |
+| `subtitle`     | string | max 200 chars                                    |
+| `category`     | string | max 80 chars                                     |
 | `language`     | enum   | `english` \| `hindi` \| `odia`                   |
+| `autosave`     | boolean | `true` for the editor's debounced autosave — the update is applied but **no `updated` history entry is recorded** (autosave is not an audit-worthy event). Manual saves/finalization still record history. |
 | `writeup`      | object | `{ editorJson, htmlContent }` (writeup type only) |
 | `painting`     | object | `{ imageUrl, imagekitFileId?, caption? }` (painting type only) |
 | `contributor`  | object | `{ name?, phone?, designation? }` — updates the linked contributor; phone is normalized to `+91XXXXXXXXXX` |
 
-**Response** `200` — full detail (as GET). Also appends an `updated` history entry.
+**HTML sanitization**: `writeup.htmlContent` is sanitized server-side before
+storage (allowlisted Tiptap vocabulary: headings, lists, blockquote, bold/italic/
+underline/strike/code, links, text-style spans with `color`/`font-size`/
+`text-align`, and the editor `figure` image node with caption, width and
+left/center/right float). Script tags, event handlers, `javascript:` URLs and
+unknown attributes are removed, so previews and administrative review always
+render safe HTML. The Tiptap JSON (`editorJson`) is stored verbatim as JSONB and
+is what the editor reconstructs drafts from.
+
+**Response** `200` — full detail (as GET). Appends an `updated` history entry
+unless `autosave` is `true`.
 
 **Errors** `400` validation · `401` bad token · `404` · `409` not a draft
 

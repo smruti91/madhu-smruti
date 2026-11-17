@@ -191,6 +191,85 @@ d("Submission lifecycle with edit tokens", () => {
     expect(res.body.data.writeup.htmlContent).toBe("<p>Updated</p>");
   });
 
+  it("persists subtitle and category", async () => {
+    const res = await request(app)
+      .put(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken)
+      .send({ subtitle: "A memoir", category: "Reminiscence", autosave: false });
+    expect(res.status).toBe(200);
+    expect(res.body.data.subtitle).toBe("A memoir");
+    expect(res.body.data.category).toBe("Reminiscence");
+  });
+
+  it("autosave skips the audit-history entry", async () => {
+    const detail = await request(app)
+      .get(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken);
+    const before = detail.body.data.history.filter((h: { action: string }) => h.action === "updated").length;
+
+    await request(app)
+      .put(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken)
+      .send({ title: "Updated Memories", autosave: true });
+
+    const after = await request(app)
+      .get(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken);
+    const afterCount = after.body.data.history.filter((h: { action: string }) => h.action === "updated").length;
+    expect(afterCount).toBe(before);
+
+    // A manual save DOES add history
+    await request(app)
+      .put(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken)
+      .send({ title: "Updated Memories", autosave: false });
+    const manual = await request(app)
+      .get(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken);
+    expect(
+      manual.body.data.history.filter((h: { action: string }) => h.action === "updated").length
+    ).toBe(afterCount + 1);
+  });
+
+  it("sanitizes dangerous HTML in writeup content", async () => {
+    const res = await request(app)
+      .put(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken)
+      .send({
+        writeup: {
+          editorJson: { type: "doc" },
+          htmlContent:
+            '<p onclick="steal()">Hi <script>alert(1)</script><a href="javascript:evil()">bad</a><strong>ok</strong></p>',
+        },
+      });
+    expect(res.status).toBe(200);
+    const html = res.body.data.writeup.htmlContent;
+    expect(html).not.toContain("<script");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain("<strong>ok</strong>");
+  });
+
+  it("preserves editor image figures and alignment styles through sanitization", async () => {
+    const res = await request(app)
+      .put(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken)
+      .send({
+        writeup: {
+          editorJson: { type: "doc" },
+          htmlContent:
+            '<p style="text-align: center">centered</p><figure class="editor-image img-align-left" style="float:left;margin-right:1.25rem;width:50%"><img src="https://ik.imagekit.io/test/x.png"><figcaption class="editor-image-caption">caption</figcaption></figure>',
+        },
+      });
+    expect(res.status).toBe(200);
+    const html = res.body.data.writeup.htmlContent;
+    expect(html).toContain('text-align:center');
+    expect(html).toContain("img-align-left");
+    expect(html).toContain("float:left");
+    expect(html).toContain("width:50%");
+    expect(html).toContain("figcaption");
+  });
+
   it("finalizes the draft transactionally", async () => {
     const res = await request(app)
       .post(`/api/v1/submissions/${writeupId}/finalize`)
