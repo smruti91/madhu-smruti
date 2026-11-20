@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Search,
   Phone,
@@ -10,6 +10,7 @@ import {
   Clock,
   X,
   User,
+  Pencil,
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -40,6 +41,24 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: "bg-red-100 text-red-800 border-red-300",
 };
 
+const EDIT_TOKENS_STORAGE_KEY = "madhu-smruti-edit-tokens";
+
+/**
+ * Reads the private edit token saved in this browser when the draft was
+ * created. No token typing is needed on the original device; drafts created
+ * elsewhere still require the saved resume link.
+ */
+function getSavedEditToken(submissionId: string): string | null {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(EDIT_TOKENS_STORAGE_KEY) ?? "{}"
+    ) as Record<string, string>;
+    return stored[submissionId] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Search Article by Phone Number page.
  *
@@ -50,6 +69,7 @@ const STATUS_STYLES: Record<string, string> = {
  */
 export function SearchArticlePage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [phone, setPhone] = useState(searchParams.get("phone") ?? "");
   const [normalizedPhone, setNormalizedPhone] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -60,6 +80,7 @@ export function SearchArticlePage() {
   const [detail, setDetail] = useState<SubmissionDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [editNotice, setEditNotice] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -97,6 +118,7 @@ export function SearchArticlePage() {
   const openArticle = async (submissionId: string) => {
     if (!normalizedPhone) return;
     setDetailError(null);
+    setEditNotice(null);
     setDetailLoading(true);
     try {
       const data = await getTrackedSubmission(submissionId, normalizedPhone);
@@ -106,6 +128,21 @@ export function SearchArticlePage() {
     } finally {
       setDetailLoading(false);
     }
+  };
+
+  /** Edit a draft using the token already saved in this browser. */
+  const handleEdit = (submissionId: string) => {
+    const savedToken = getSavedEditToken(submissionId);
+    if (!savedToken) {
+      setEditNotice(
+        "This draft was created on another device. Use the private resume link from your confirmation message to edit it."
+      );
+      return;
+    }
+    setEditNotice(null);
+    navigate(
+      `/submit?draft=${submissionId}&token=${encodeURIComponent(savedToken)}`
+    );
   };
 
   return (
@@ -161,6 +198,12 @@ export function SearchArticlePage() {
         </div>
       ) : null}
 
+      {editNotice ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-800" role="status">
+          {editNotice}
+        </div>
+      ) : null}
+
       {results !== null && results.length === 0 ? (
         <div className="rounded-xl border border-gold-200 bg-cream-50 p-8 text-center">
           <Phone className="mx-auto h-12 w-12 text-ink-300" aria-hidden="true" />
@@ -197,6 +240,7 @@ export function SearchArticlePage() {
                 key={submission.id}
                 submission={submission}
                 onOpen={() => void openArticle(submission.id)}
+                onEdit={() => handleEdit(submission.id)}
               />
             ))}
           </div>
@@ -204,8 +248,9 @@ export function SearchArticlePage() {
       ) : null}
 
       <p className="text-center text-xs text-ink-400">
-        Need help? Contact the MDRAFM editorial team. To edit a draft, use the
-        private resume link you received when you created it.
+        Need help? Contact the MDRAFM editorial team. Drafts created in this
+        browser can be edited directly; on another device, use the private
+        resume link from your confirmation message.
       </p>
 
       {detailLoading ? (
@@ -222,7 +267,14 @@ export function SearchArticlePage() {
         </div>
       ) : null}
 
-      {detail ? <ArticleView detail={detail} onClose={() => setDetail(null)} /> : null}
+      {detail ? (
+        <ArticleView
+          detail={detail}
+          editNotice={editNotice}
+          onEdit={() => handleEdit(detail.id)}
+          onClose={() => setDetail(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -230,9 +282,11 @@ export function SearchArticlePage() {
 function ArticleCard({
   submission,
   onOpen,
+  onEdit,
 }: {
   submission: SubmissionSearchResult;
   onOpen: () => void;
+  onEdit: () => void;
 }) {
   const isDraft = submission.status === "draft";
   const displayDate = new Date(
@@ -244,12 +298,15 @@ function ArticleCard({
   });
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
+    <article
       role="listitem"
-      className="block w-full rounded-xl border border-gold-200 bg-white p-5 text-left shadow-sm transition-all hover:border-gold-400 hover:shadow-md focus:outline-2 focus:outline-offset-2 focus:outline-gold-500"
+      className="overflow-hidden rounded-xl border border-gold-200 bg-white shadow-sm transition-all hover:border-gold-400 hover:shadow-md"
     >
+      <button
+        type="button"
+        onClick={onOpen}
+        className="block w-full p-5 text-left focus:outline-2 focus:outline-offset-2 focus:outline-gold-500"
+      >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-1 items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-100 text-maroon-600">
@@ -296,16 +353,35 @@ function ArticleCard({
           View article →
         </span>
       </div>
-    </button>
+      </button>
+
+      {isDraft ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gold-200 bg-cream-50 px-5 py-2">
+          <span className="text-xs text-ink-400">Still a draft — you can edit it.</span>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-maroon-300 px-3 py-1.5 text-sm font-medium text-maroon-700 transition-colors hover:bg-maroon-100"
+          >
+            <Pencil className="h-4 w-4" aria-hidden="true" />
+            Edit draft
+          </button>
+        </div>
+      ) : null}
+    </article>
   );
 }
 
 /** Read-only article view opened automatically when a result is clicked. */
 function ArticleView({
   detail,
+  editNotice,
+  onEdit,
   onClose,
 }: {
   detail: SubmissionDetail;
+  editNotice: string | null;
+  onEdit: () => void;
   onClose: () => void;
 }) {
   const isDraft = detail.status === "draft";
@@ -338,17 +414,34 @@ function ArticleView({
               <p className="mt-1 text-sm text-ink-500">{detail.subtitle}</p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-ink-400 hover:bg-cream-200 hover:text-ink-700"
-            aria-label="Close article"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {isDraft ? (
+              <button
+                type="button"
+                onClick={onEdit}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-maroon-600 px-3 py-2 text-sm font-medium text-white hover:bg-maroon-700"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />
+                Edit draft
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-2 text-ink-400 hover:bg-cream-200 hover:text-ink-700"
+              aria-label="Close article"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-5 p-6">
+          {editNotice ? (
+            <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" role="status">
+              {editNotice}
+            </p>
+          ) : null}
           <section className="flex flex-wrap gap-x-8 gap-y-2 rounded-lg border border-gold-200 bg-white p-4 text-sm">
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-gold-600" aria-hidden="true" />
@@ -411,8 +504,10 @@ function ArticleView({
 
           {isDraft ? (
             <p className="rounded-lg border border-gold-200 bg-cream-100 p-4 text-center text-sm text-ink-500">
-              This article is still a draft. To edit it, use the private resume link
-              you received when you created it.
+              This article is still a draft. Use <strong>Edit draft</strong> above to
+              continue — your private token saved in this browser is used
+              automatically. On another device, use the resume link from your
+              confirmation message.
             </p>
           ) : null}
         </div>
