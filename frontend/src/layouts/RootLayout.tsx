@@ -40,13 +40,13 @@ export function RootLayout() {
 
       <header className="sticky top-0 z-40 border-b border-gold-200 bg-cream-50/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-3 sm:flex-row sm:justify-between sm:gap-6 sm:py-4">
-          <NavLink to="/" className="group flex items-center" aria-label={`${APP_NAME} home`}>
+          <NavLink to="/" className="group relative z-10 flex items-center" aria-label={`${APP_NAME} home`}>
             <img
               src={LOGO_URL}
               alt={`${APP_NAME} logo`}
-              width={128}
-              height={42}
-              className="h-9 w-auto max-w-[140px] shrink-0 object-contain transition-opacity group-hover:opacity-90 sm:h-10"
+              width={192}
+              height={64}
+              className="h-12 w-auto max-w-[220px] shrink-0 object-contain transition-opacity group-hover:opacity-90 sm:h-14"
             />
           </NavLink>
 
