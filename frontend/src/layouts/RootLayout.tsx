@@ -40,22 +40,14 @@ export function RootLayout() {
 
       <header className="sticky top-0 z-40 border-b border-gold-200 bg-cream-50/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-3 sm:flex-row sm:justify-between sm:gap-6 sm:py-4">
-          <NavLink to="/" className="group flex items-center gap-3 text-center sm:text-left">
+          <NavLink to="/" className="group flex items-center" aria-label={`${APP_NAME} home`}>
             <img
               src={LOGO_URL}
               alt={`${APP_NAME} logo`}
-              width={96}
-              height={32}
-              className="h-8 w-auto max-w-[112px] shrink-0 object-contain"
+              width={128}
+              height={42}
+              className="h-9 w-auto max-w-[140px] shrink-0 object-contain transition-opacity group-hover:opacity-90 sm:h-10"
             />
-            <span className="flex flex-col leading-tight">
-              <span className="font-display text-lg font-bold tracking-wide text-maroon-800 sm:text-xl">
-                {APP_NAME}
-              </span>
-              <span className="text-odia text-sm text-gold-600">
-                {APP_NAME_ODIA} · {ORGANIZATION}
-              </span>
-            </span>
           </NavLink>
 
           <nav className="flex items-center gap-1" aria-label="Main navigation">
