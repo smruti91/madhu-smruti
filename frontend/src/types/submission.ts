@@ -22,10 +22,21 @@ export interface WriteupInput {
   htmlContent: string;
 }
 
-export interface PaintingInput {
+export interface PaintingImageInput {
   imageUrl: string;
   imagekitFileId?: string;
   caption?: string;
+}
+
+export interface PaintingInput {
+  /** Images in display order (1..MAX_PAINTING_IMAGES). */
+  images: PaintingImageInput[];
+}
+
+export interface UploadLimits {
+  maxFileSizeBytes: number;
+  maxPaintingImages: number;
+  allowedMimeTypes: string[];
 }
 
 export interface CreateSubmissionPayload {
@@ -33,6 +44,7 @@ export interface CreateSubmissionPayload {
   title: string;
   subtitle?: string;
   category?: string;
+  description?: string;
   language: SubmissionLanguage;
   submissionType: SubmissionType;
   writeup?: WriteupInput;
@@ -91,6 +103,7 @@ export interface SubmissionDetail {
   title: string;
   subtitle: string | null;
   category: string | null;
+  description: string | null;
   language: SubmissionLanguage;
   status: string;
   createdAt: string;
@@ -107,6 +120,7 @@ export interface UpdateSubmissionPayload {
   title?: string;
   subtitle?: string;
   category?: string;
+  description?: string;
   language?: SubmissionLanguage;
   /** True when sent by the debounced autosave (skips the audit history). */
   autosave?: boolean;

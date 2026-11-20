@@ -19,7 +19,7 @@ import {
 import type { CreateSubmissionInput, UpdateSubmissionInput } from "./validator";
 import type { AdminListQuery } from "../admin/validator";
 import { upsertWriteupContent, getWriteupContent } from "../writeups/service";
-import { listImages, upsertPrimaryImage } from "../paintings/service";
+import { listImages, replaceImages } from "../paintings/service";
 import { contributorPublicFields } from "../contributors/service";
 
 type Submission = typeof submissions.$inferSelect;
@@ -136,6 +136,7 @@ export function submissionSummary(submission: Submission, contributor: Contribut
     title: submission.title,
     subtitle: submission.subtitle,
     category: submission.category,
+    description: submission.description,
     language: submission.language,
     status: submission.status,
     createdAt: submission.createdAt.toISOString(),
@@ -237,6 +238,7 @@ export async function createSubmission(input: CreateSubmissionInput) {
       title: input.title,
       subtitle: input.subtitle ?? null,
       category: input.category ?? null,
+      description: input.description ?? null,
       language: input.language,
       status: "draft",
       editTokenHash: hashEditToken(editToken),
@@ -247,7 +249,7 @@ export async function createSubmission(input: CreateSubmissionInput) {
     await upsertWriteupContent(submission.id, input.writeup);
   }
   if (input.painting) {
-    await upsertPrimaryImage(submission.id, input.painting);
+    await replaceImages(submission.id, input.painting.images);
   }
 
   await recordHistory(submission.id, "created", `Submission created (${input.submissionType})`, "contributor");
@@ -274,13 +276,14 @@ export async function updateSubmission(submission: Submission, input: UpdateSubm
 
   const db = getDb();
 
-  if (input.title || input.language || input.subtitle !== undefined || input.category !== undefined) {
+  if (input.title || input.language || input.subtitle !== undefined || input.category !== undefined || input.description !== undefined) {
     await db
       .update(submissions)
       .set({
         ...(input.title ? { title: input.title } : {}),
         ...(input.subtitle !== undefined ? { subtitle: input.subtitle || null } : {}),
         ...(input.category !== undefined ? { category: input.category || null } : {}),
+        ...(input.description !== undefined ? { description: input.description || null } : {}),
         ...(input.language ? { language: input.language } : {}),
       })
       .where(eq(submissions.id, submission.id));
@@ -304,7 +307,7 @@ export async function updateSubmission(submission: Submission, input: UpdateSubm
   }
 
   if (input.painting && submission.submissionType === "painting") {
-    await upsertPrimaryImage(submission.id, input.painting);
+    await replaceImages(submission.id, input.painting.images);
   }
 
   // Autosave requests change content but are not audit-worthy events; only

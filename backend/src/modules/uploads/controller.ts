@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { env } from "../../config/env";
 import { signUpload, uploadImage, type UploadResult } from "./service";
 import { sendSuccess } from "../../utils/apiResponse";
 
@@ -31,4 +32,17 @@ export async function uploadImageHandler(req: Request, res: Response): Promise<v
  */
 export function signUploadHandler(_req: Request, res: Response): void {
   sendSuccess(res, signUpload(), "Upload authorization generated");
+}
+
+/**
+ * GET /api/uploads/limits
+ * Public configuration so the UI can enforce and display the same limits the
+ * server validates (max size, max image count, allowed formats).
+ */
+export function uploadLimitsHandler(_req: Request, res: Response): void {
+  sendSuccess(res, {
+    maxFileSizeBytes: env.MAX_IMAGE_BYTES,
+    maxPaintingImages: env.MAX_PAINTING_IMAGES,
+    allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+  });
 }

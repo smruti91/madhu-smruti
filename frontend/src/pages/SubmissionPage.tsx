@@ -2,7 +2,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type ChangeEvent,
   type FormEvent,
 } from "react";
 import { Link, useBlocker, useNavigate, useSearchParams } from "react-router-dom";
@@ -11,7 +10,6 @@ import {
   CheckCircle2,
   CloudUpload,
   FileCheck2,
-  ImagePlus,
   KeyRound,
   Link2,
   Loader2,
@@ -31,16 +29,19 @@ import {
   updateSubmission,
 } from "../api/submissions";
 import { registerContributor } from "../api/contributors";
-import { uploadImage } from "../api/uploads";
+import { getUploadLimits } from "../api/uploads";
+import { PaintingGallery } from "../components/painting/PaintingGallery";
 import {
   formatIndianMobile,
   normalizeIndianMobile,
 } from "../utils/phone";
 import type {
   CreateSubmissionPayload,
+  PaintingImageInput,
   SubmissionLanguage,
   SubmissionType,
   UpdateSubmissionPayload,
+  UploadLimits,
 } from "../types/submission";
 
 const EDIT_TOKENS_STORAGE_KEY = "madhu-smruti-edit-tokens";
@@ -66,8 +67,12 @@ const languageOptions = [
   { value: "odia", label: "ଓଡ଼ିଆ (Odia)" },
 ];
 
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
+// Fallbacks until GET /api/uploads/limits resolves; the server is authoritative.
+const DEFAULT_UPLOAD_LIMITS: UploadLimits = {
+  maxFileSizeBytes: 5 * 1024 * 1024,
+  maxPaintingImages: 12,
+  allowedMimeTypes: ["image/jpeg", "image/png", "image/webp"],
+};
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -80,6 +85,15 @@ interface ConfirmedResult {
   editToken: string | null;
   /** True when the draft went through Final Submit (status = submitted). */
   finalized: boolean;
+}
+
+interface PreviewContent {
+  title: string;
+  subtitle?: string;
+  category?: string;
+  description?: string;
+  htmlContent?: string;
+  images?: Array<{ imageUrl: string; caption?: string }>;
 }
 
 /**
@@ -123,13 +137,10 @@ export function SubmissionPage() {
   const [editorJson, setEditorJson] = useState<unknown>(null);
 
   // Painting state
-  const [uploading, setUploading] = useState(false);
-  const [uploadedImage, setUploadedImage] = useState<{
-    imageUrl: string;
-    imagekitFileId: string;
-  } | null>(null);
-  const [caption, setCaption] = useState("");
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [paintingImages, setPaintingImages] = useState<PaintingImageInput[]>([]);
+  const [description, setDescription] = useState("");
+  const [uploadLimits, setUploadLimits] =
+    useState<UploadLimits>(DEFAULT_UPLOAD_LIMITS);
 
   // Draft loading (edit mode)
   const [loadingDraft, setLoadingDraft] = useState(isEditMode);
@@ -140,6 +151,9 @@ export function SubmissionPage() {
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ConfirmedResult | null>(null);
+  // Preview modal state
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewContent, setPreviewContent] = useState<PreviewContent | null>(null);
 
   // Autosave state
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
@@ -147,6 +161,8 @@ export function SubmissionPage() {
   const [isDirty, setIsDirty] = useState(false);
   const dirtyRef = useRef(false);
   const saveTimerRef = useRef<number | null>(null);
+  // Prevents a double-click / double-Enter from submitting the same draft twice.
+  const finalizingRef = useRef(false);
   // Holds the latest autosave runner (the timer callback survives re-renders).
   const autosaveRef = useRef<(() => void) | null>(null);
 
@@ -184,12 +200,12 @@ export function SubmissionPage() {
         title,
         subtitle,
         category,
+        description,
         language,
         submissionType,
         editorHtml,
         editorJson,
-        uploadedImage,
-        caption,
+        paintingImages,
         autosave: true,
       });
       await updateSubmission(draftId, draftToken, payload);
@@ -207,6 +223,22 @@ export function SubmissionPage() {
   useEffect(() => {
     autosaveRef.current = () => void runAutosave();
   });
+
+  // Fetch server-configured upload limits (max size / max images / formats).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const limits = await getUploadLimits();
+        if (!cancelled) setUploadLimits(limits);
+      } catch {
+        // keep the sensible defaults; the server still enforces the real limits
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const retrySave = () => {
     dirtyRef.current = true;
@@ -264,6 +296,7 @@ export function SubmissionPage() {
         setTitle(detail.title);
         setSubtitle(detail.subtitle ?? "");
         setCategory(detail.category ?? "");
+        setDescription(detail.description ?? "");
         setLanguage(detail.language);
         setSubmissionType(detail.submissionType);
 
@@ -272,12 +305,12 @@ export function SubmissionPage() {
           setEditorJson(detail.writeup.editorJson);
         }
         if (detail.images?.length) {
-          const image = detail.images[0];
-          setUploadedImage({
-            imageUrl: image.imageUrl,
-            imagekitFileId: image.id,
-          });
-          setCaption(image.caption ?? "");
+          setPaintingImages(
+            detail.images.map((image) => ({
+              imageUrl: image.imageUrl,
+              ...(image.caption ? { caption: image.caption } : {}),
+            }))
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -308,42 +341,9 @@ export function SubmissionPage() {
     }
   };
 
-  const handleImageSelect = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadError(null);
-    setUploadedImage(null);
-
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setUploadError("Only JPEG, PNG or WebP images are allowed");
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setUploadError("Image must be 5 MB or smaller");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const uploaded = await uploadImage(file);
-      setUploadedImage({
-        imageUrl: uploaded.imageUrl,
-        imagekitFileId: uploaded.imagekitFileId,
-      });
-      markDirty();
-    } catch (err) {
-      setUploadError((err as Error).message);
-    } finally {
-      setUploading(false);
-      event.target.value = ""; // allow re-selecting the same file
-    }
-  };
-
-  const clearUploadedImage = () => {
-    setUploadedImage(null);
-    setCaption("");
-    setUploadError(null);
+  /** Gallery change handler (add/remove/reorder/caption). */
+  const handlePaintingImagesChange = (images: PaintingImageInput[]) => {
+    setPaintingImages(images);
     markDirty();
   };
 
@@ -367,8 +367,17 @@ export function SubmissionPage() {
     if (submissionType === "writeup" && (!editorHtml || editorHtml === "<p></p>")) {
       return "Please write your content in the editor before submitting";
     }
-    if (submissionType === "painting" && !uploadedImage && !isEditMode) {
-      return "Please upload a painting image before submitting";
+    if (submissionType === "painting") {
+      if (paintingImages.length === 0) {
+        return "Please upload at least one painting image before submitting";
+      }
+      if (paintingImages.length > uploadLimits.maxPaintingImages) {
+        return `You can submit at most ${uploadLimits.maxPaintingImages} images`;
+      }
+      const urls = paintingImages.map((image) => image.imageUrl);
+      if (new Set(urls).size !== urls.length) {
+        return "The same image appears more than once - remove the duplicate";
+      }
     }
 
     return normalized;
@@ -416,12 +425,9 @@ export function SubmissionPage() {
       payload.subtitle = subtitle.trim();
       payload.category = category.trim();
       payload.writeup = { htmlContent: editorHtml, editorJson: editorJson ?? {} };
-    } else if (uploadedImage) {
-      payload.painting = {
-        imageUrl: uploadedImage.imageUrl,
-        imagekitFileId: uploadedImage.imagekitFileId,
-        ...(caption.trim() ? { caption: caption.trim() } : {}),
-      };
+    } else {
+      payload.description = description.trim();
+      payload.painting = { images: paintingImages };
     }
     return updateSubmission(draftId!, draftToken!, payload);
   };
@@ -441,12 +447,9 @@ export function SubmissionPage() {
       if (subtitle.trim()) payload.subtitle = subtitle.trim();
       if (category.trim()) payload.category = category.trim();
       payload.writeup = { htmlContent: editorHtml, editorJson: editorJson ?? {} };
-    } else if (uploadedImage) {
-      payload.painting = {
-        imageUrl: uploadedImage.imageUrl,
-        imagekitFileId: uploadedImage.imagekitFileId,
-        ...(caption.trim() ? { caption: caption.trim() } : {}),
-      };
+    } else {
+      if (description.trim()) payload.description = description.trim();
+      payload.painting = { images: paintingImages };
     }
     return createSubmission(payload);
   };
@@ -499,7 +502,7 @@ export function SubmissionPage() {
     }
   };
 
-  /** Handle "Final Submit": save + finalize, then show the confirmation. */
+  /** Handle "Final Submit": validate, show preview modal, then finalize on confirmation. */
   const handleFinalSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void runFinalSubmit();
@@ -507,11 +510,37 @@ export function SubmissionPage() {
 
   const runFinalSubmit = async () => {
     setError(null);
+    if (finalizingRef.current) return; // already submitting
 
     const normalizedPhone = validateForm();
     if (!normalizedPhone) return;
 
+    // Build preview content
+    const content: PreviewContent = {
+      title: title.trim(),
+      ...(subtitle.trim() ? { subtitle: subtitle.trim() } : {}),
+      ...(category.trim() ? { category: category.trim() } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+    };
+    if (submissionType === "writeup") {
+      content.htmlContent = editorHtml;
+    } else {
+      content.images = paintingImages.map((img) => ({
+        imageUrl: img.imageUrl,
+        ...(img.caption ? { caption: img.caption } : {}),
+      }));
+    }
+    setPreviewContent(content);
+    setShowPreview(true);
+  };
+
+  const confirmFinalSubmit = async () => {
+    if (finalizingRef.current) return;
+    if (!previewContent) return;
+
+    finalizingRef.current = true;
     setFinalizing(true);
+    setShowPreview(false);
     try {
       let submissionId: string;
       let editToken: string | null = null;
@@ -525,8 +554,10 @@ export function SubmissionPage() {
           window.clearTimeout(saveTimerRef.current);
           saveTimerRef.current = null;
         }
-        await saveExistingDraft(normalizedPhone);
+        await saveExistingDraft(normalizeIndianMobile(phone) || null);
       } else {
+        const normalizedPhone = validateForm();
+        if (!normalizedPhone) return;
         const created = await createNewDraft(normalizedPhone);
         submissionId = created.id;
         editToken = created.editToken;
@@ -549,6 +580,7 @@ export function SubmissionPage() {
     } catch (err) {
       setError((err as Error).message);
     } finally {
+      finalizingRef.current = false;
       setFinalizing(false);
     }
   };
@@ -566,9 +598,8 @@ export function SubmissionPage() {
     setSubmissionType("writeup");
     setEditorHtml("");
     setEditorJson(null);
-    setUploadedImage(null);
-    setCaption("");
-    setUploadError(null);
+    setPaintingImages([]);
+    setDescription("");
     setSaveStatus("idle");
     setLastSavedAt(null);
   };
@@ -605,7 +636,7 @@ export function SubmissionPage() {
     );
   }
 
-  const busy = savingDraft || finalizing || uploading;
+  const busy = savingDraft || finalizing;
 
   return (
     <form onSubmit={handleFinalSubmit} className="mx-auto max-w-3xl space-y-8">
@@ -777,59 +808,46 @@ export function SubmissionPage() {
             />
           </div>
         ) : (
-          <div className="space-y-3">
-            <span className="text-sm font-medium text-ink-700">Painting image</span>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-medium text-ink-700">
+                Painting images
+              </span>
+              <span className="rounded-full bg-cream-200 px-2.5 py-0.5 text-xs font-medium text-ink-500">
+                {paintingImages.length} / {uploadLimits.maxPaintingImages}
+              </span>
+            </div>
 
-            {uploading ? (
-              <Spinner label="Uploading image…" />
-            ) : uploadedImage ? (
-              <div className="flex items-start gap-4 rounded-lg border border-leaf-200 bg-leaf-100 p-3">
-                <img
-                  src={uploadedImage.imageUrl}
-                  alt="Painting preview"
-                  className="h-24 w-24 rounded-lg object-cover"
-                />
-                <div className="flex-1 text-sm text-leaf-700">
-                  Image uploaded successfully.
-                  <Input
-                    label="Caption (optional)"
-                    className="mt-2"
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    onBlur={markDirty}
-                    maxLength={300}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={clearUploadedImage}
-                  className="text-ink-400 hover:text-red-600"
-                  aria-label="Remove image"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            ) : (
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gold-400 bg-cream-100 px-6 py-10 text-center transition-colors hover:border-gold-500 hover:bg-gold-100">
-                <ImagePlus className="h-8 w-8 text-ink-400" aria-hidden="true" />
-                <span className="text-sm font-medium text-ink-700">
-                  Click to upload your painting
-                </span>
-                <span className="text-xs text-ink-400">
-                  JPEG, PNG or WebP · max 5 MB
-                </span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="sr-only"
-                  onChange={handleImageSelect}
-                />
+            <PaintingGallery
+              images={paintingImages}
+              onChange={handlePaintingImagesChange}
+              maxImages={uploadLimits.maxPaintingImages}
+              maxFileSizeBytes={uploadLimits.maxFileSizeBytes}
+            />
+
+            <div className="space-y-1">
+              <label
+                htmlFor="painting-description"
+                className="text-sm font-medium text-ink-700"
+              >
+                Description (optional)
               </label>
-            )}
-
-            {uploadError ? (
-              <p className="text-xs text-red-600">{uploadError}</p>
-            ) : null}
+              <textarea
+                id="painting-description"
+                value={description}
+                onChange={(event) => {
+                  setDescription(event.target.value);
+                  markDirty();
+                }}
+                rows={4}
+                maxLength={2000}
+                placeholder="Medium, year, inspiration, or the story behind the painting…"
+                className="w-full rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-400 focus:outline-none"
+              />
+              <p className="text-right text-xs text-ink-400">
+                {description.length} / 2000
+              </p>
+            </div>
           </div>
         )}
       </section>
@@ -881,6 +899,15 @@ export function SubmissionPage() {
         </div>
       ) : null}
 
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirm={confirmFinalSubmit}
+        content={previewContent}
+        submissionType={submissionType}
+        loading={finalizing}
+      />
+
       <div className="flex flex-wrap items-center justify-end gap-3">
         <Button
           type="button"
@@ -893,7 +920,7 @@ export function SubmissionPage() {
         </Button>
         <Button type="submit" disabled={busy}>
           {finalizing ? <Spinner size="sm" /> : <CloudUpload className="h-4 w-4" />}
-          {finalizing ? "Submitting…" : "Final Submit"}
+          {finalizing ? "Submitting…" : isEditMode ? "Review & Submit" : "Final Submit"}
         </Button>
       </div>
     </form>
@@ -904,12 +931,12 @@ interface SavePayloadInput {
   title: string;
   subtitle: string;
   category: string;
+  description: string;
   language: SubmissionLanguage;
   submissionType: SubmissionType;
   editorHtml: string;
   editorJson: unknown;
-  uploadedImage: { imageUrl: string; imagekitFileId: string } | null;
-  caption: string;
+  paintingImages: PaintingImageInput[];
   autosave: boolean;
 }
 
@@ -927,14 +954,135 @@ function buildSavePayload(input: SavePayloadInput): UpdateSubmissionPayload {
       htmlContent: input.editorHtml,
       editorJson: input.editorJson ?? {},
     };
-  } else if (input.uploadedImage) {
-    payload.painting = {
-      imageUrl: input.uploadedImage.imageUrl,
-      imagekitFileId: input.uploadedImage.imagekitFileId,
-      ...(input.caption.trim() ? { caption: input.caption.trim() } : {}),
-    };
+  } else {
+    payload.description = input.description.trim();
+    if (input.paintingImages.length > 0) {
+      payload.painting = { images: input.paintingImages };
+    }
   }
   return payload;
+}
+
+/** Preview modal shown before final submission. */
+function PreviewModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  content,
+  submissionType,
+  loading,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  content: PreviewContent | null;
+  submissionType: SubmissionType;
+  loading: boolean;
+}) {
+  if (!isOpen || !content) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Preview your submission"
+    >
+      <div className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-gold-300 bg-cream-50 shadow-xl">
+        <div className="flex items-center justify-between border-b border-gold-200 px-6 py-4">
+          <h2 className="font-display text-xl font-bold text-maroon-800">
+            Review your {submissionType === "writeup" ? "write-up" : "painting"} before submitting
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-ink-400 hover:bg-cream-200 hover:text-ink-700"
+            aria-label="Close preview"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-6" style={{ maxHeight: "calc(85vh - 120px)" }}>
+          <article className="prose prose-maroon max-w-none prose-img:rounded-xl prose-img:border prose-img:border-gold-200">
+            <header className="mb-6 pb-4 border-b border-gold-200">
+              <h1 className="font-display text-2xl font-bold text-maroon-800">{content.title}</h1>
+              {content.subtitle && (
+                <p className="mt-2 text-lg text-ink-600">{content.subtitle}</p>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-ink-400">
+                {content.category && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gold-100 px-2.5 py-0.5 text-gold-800">
+                    {content.category}
+                  </span>
+                )}
+              </div>
+            </header>
+
+            {submissionType === "writeup" ? (
+              content.htmlContent ? (
+                <div
+                  className="prose prose-maroon max-w-none"
+                  dangerouslySetInnerHTML={{ __html: content.htmlContent }}
+                />
+              ) : (
+                <p className="text-ink-400 italic">No content written yet.</p>
+              )
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {content.images?.map((image, index) => (
+                  <figure key={index} className="m-0">
+                    <img
+                      src={image.imageUrl}
+                      alt={image.caption || `Painting image ${index + 1}`}
+                      className="rounded-xl border border-gold-200 w-full aspect-[4/3] object-contain bg-cream-200"
+                    />
+                    {image.caption && (
+                      <figcaption className="mt-2 text-sm text-center text-ink-600 italic">
+                        {image.caption}
+                      </figcaption>
+                    )}
+                  </figure>
+                ))}
+              </div>
+            )}
+
+            {content.description && (
+              <div className="mt-6 pt-4 border-t border-gold-200">
+                <h3 className="font-display text-lg font-semibold text-maroon-800">Description</h3>
+                <p className="mt-2 text-ink-700 whitespace-pre-wrap">{content.description}</p>
+              </div>
+            )}
+          </article>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 border-t border-gold-200 px-6 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gold-300 bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-cream-100"
+          >
+            Back to editing
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="rounded-lg bg-maroon-600 px-5 py-2 text-sm font-medium text-white hover:bg-maroon-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <Spinner size="sm" />
+                Submitting…
+              </>
+            ) : (
+              "Confirm & Finalize"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Live autosave status indicator: saving / saved (with time) / error (retry). */

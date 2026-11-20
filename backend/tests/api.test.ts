@@ -294,21 +294,116 @@ d("Submission lifecycle with edit tokens", () => {
     expect(res.status).toBe(409);
   });
 
-  it("creates a painting submission with image reference", async () => {
+  it("creates a painting submission with image references", async () => {
     const res = await createSubmission({
       contributorId,
       title: "My Painting",
+      description: "A landscape in oils, painted in 2024.",
       language: "english",
       submissionType: "painting",
       painting: {
-        imageUrl: "https://ik.imagekit.io/demo/test.png",
-        imagekitFileId: "test-file-id",
-        caption: "Sunset",
+        images: [
+          {
+            imageUrl: "https://ik.imagekit.io/demo/test.png",
+            imagekitFileId: "test-file-id",
+            caption: "Sunset",
+          },
+          {
+            imageUrl: "https://ik.imagekit.io/demo/test-2.png",
+            imagekitFileId: "test-file-id-2",
+            caption: "Detail",
+          },
+        ],
       },
     });
     expect(res.status).toBe(201);
     expect(res.body.data.submission.referenceNumber).toMatch(/^MDRAFM-P-\d{4}-\d{4}$/);
     paintingId = res.body.data.submission.id;
+  });
+
+  it("stores painting images in display order with captions", async () => {
+    const created = await createSubmission({
+      contributorId,
+      title: "Ordered Painting",
+      description: "Three-panel study.",
+      language: "english",
+      submissionType: "painting",
+      painting: {
+        images: [
+          { imageUrl: "https://ik.imagekit.io/demo/one.png", caption: "First" },
+          { imageUrl: "https://ik.imagekit.io/demo/two.png", caption: "Second" },
+          { imageUrl: "https://ik.imagekit.io/demo/three.png" },
+        ],
+      },
+    });
+    expect(created.status).toBe(201);
+    const { id } = created.body.data.submission;
+    const editToken = created.body.data.editToken;
+
+    const detail = await request(app)
+      .get(`/api/v1/submissions/${id}`)
+      .set("X-Edit-Token", editToken);
+    expect(detail.status).toBe(200);
+    expect(detail.body.data.description).toBe("Three-panel study.");
+    expect(detail.body.data.images.map((i: { imageUrl: string }) => i.imageUrl)).toEqual([
+      "https://ik.imagekit.io/demo/one.png",
+      "https://ik.imagekit.io/demo/two.png",
+      "https://ik.imagekit.io/demo/three.png",
+    ]);
+    expect(detail.body.data.images.map((i: { displayOrder: number }) => i.displayOrder)).toEqual([
+      0, 1, 2,
+    ]);
+    expect(detail.body.data.images[0].caption).toBe("First");
+    expect(detail.body.data.images[2].caption).toBeNull();
+  });
+
+  it("updates painting images and description on an existing draft", async () => {
+    const created = await createSubmission({
+      contributorId,
+      title: "Reorder Painting",
+      language: "english",
+      submissionType: "painting",
+      painting: {
+        images: [{ imageUrl: "https://ik.imagekit.io/demo/a.png" }],
+      },
+    });
+    const { id } = created.body.data.submission;
+    const editToken = created.body.data.editToken;
+
+    const updated = await request(app)
+      .put(`/api/v1/submissions/${id}`)
+      .set("X-Edit-Token", editToken)
+      .send({
+        description: "Reordered and trimmed.",
+        painting: {
+          images: [
+            { imageUrl: "https://ik.imagekit.io/demo/b.png", caption: "B" },
+            { imageUrl: "https://ik.imagekit.io/demo/c.png", caption: "C" },
+          ],
+        },
+      });
+    expect(updated.status).toBe(200);
+    expect(updated.body.data.description).toBe("Reordered and trimmed.");
+    expect(updated.body.data.images.map((i: { imageUrl: string }) => i.imageUrl)).toEqual([
+      "https://ik.imagekit.io/demo/b.png",
+      "https://ik.imagekit.io/demo/c.png",
+    ]);
+  });
+
+  it("rejects duplicate painting images", async () => {
+    const res = await createSubmission({
+      contributorId,
+      title: "Duplicate Painting",
+      language: "english",
+      submissionType: "painting",
+      painting: {
+        images: [
+          { imageUrl: "https://ik.imagekit.io/demo/same.png" },
+          { imageUrl: "https://ik.imagekit.io/demo/same.png" },
+        ],
+      },
+    });
+    expect(res.status).toBe(400);
   });
 
   it("issues a short-lived edit session via /resume", async () => {

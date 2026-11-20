@@ -1,6 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
-import { signUploadHandler, uploadImageHandler } from "./controller";
+import { env } from "../../config/env";
+import {
+  signUploadHandler,
+  uploadImageHandler,
+  uploadLimitsHandler,
+} from "./controller";
 import { editLimiter } from "../../middleware/rateLimit";
 
 const router = Router();
@@ -8,7 +13,7 @@ const router = Router();
 // Images are held in memory only long enough to stream them to ImageKit
 const imageUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  limits: { fileSize: env.MAX_IMAGE_BYTES },
   fileFilter: (_req, file, cb) => {
     const allowed = ["image/jpeg", "image/png", "image/webp"];
     if (allowed.includes(file.mimetype)) {
@@ -18,6 +23,9 @@ const imageUpload = multer({
     cb(new Error("Only JPEG, PNG or WebP images are allowed"));
   },
 });
+
+// GET /api/uploads/limits - public upload configuration
+router.get("/limits", uploadLimitsHandler);
 
 // POST /api/uploads/image (multipart/form-data, field name: "image")
 router.post("/image", imageUpload.single("image"), uploadImageHandler);

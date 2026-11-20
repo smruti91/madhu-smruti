@@ -20,6 +20,10 @@ const envSchema = z.object({
   IMAGEKIT_PUBLIC_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   IMAGEKIT_URL_ENDPOINT: z.preprocess(emptyToUndefined, z.string().optional()),
 
+  // Painting upload limits (configurable per deployment)
+  MAX_PAINTING_IMAGES: z.coerce.number().int().positive().default(12),
+  MAX_IMAGE_BYTES: z.coerce.number().int().positive().default(5 * 1024 * 1024),
+
   // Admin authentication (JWT session cookies).
   // REQUIRED in production - the auth module refuses to issue sessions without it.
   ADMIN_JWT_SECRET: z.preprocess(emptyToUndefined, z.string().min(32).optional()),

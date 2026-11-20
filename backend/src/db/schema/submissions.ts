@@ -1,4 +1,4 @@
-import { index, pgTable, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
+import { index, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from "drizzle-orm/pg-core";
 import { contributors } from "./contributors";
 import {
   submissionLanguageEnum,
@@ -28,6 +28,7 @@ export const submissions = pgTable(
     title: varchar("title", { length: 200 }).notNull(),
     subtitle: varchar("subtitle", { length: 200 }),
     category: varchar("category", { length: 80 }),
+    description: text("description"),
     language: submissionLanguageEnum("language").notNull(),
     status: submissionStatusEnum("status").default("draft").notNull(),
     editTokenHash: varchar("edit_token_hash", { length: 128 }),
