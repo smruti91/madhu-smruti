@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { BookHeart, ExternalLink } from "lucide-react";
-import { APP_NAME, APP_NAME_ODIA, ORGANIZATION, ORGANIZATION_BLURB } from "../config/constants";
+import { ExternalLink } from "lucide-react";
+import { APP_NAME, APP_NAME_ODIA, LOGO_URL, ORGANIZATION, ORGANIZATION_BLURB } from "../config/constants";
 import { useHealth } from "../hooks/useHealth";
 import { LotusDivider } from "../components/illustrations/artwork";
 
@@ -41,9 +41,13 @@ export function RootLayout() {
       <header className="sticky top-0 z-40 border-b border-gold-200 bg-cream-50/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-3 sm:flex-row sm:justify-between sm:gap-6 sm:py-4">
           <NavLink to="/" className="group flex items-center gap-3 text-center sm:text-left">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-gold-400 bg-cream-200 text-maroon-700 transition-colors group-hover:bg-gold-100">
-              <BookHeart className="h-5 w-5" aria-hidden="true" />
-            </span>
+            <img
+              src={LOGO_URL}
+              alt={`${APP_NAME} logo`}
+              width={96}
+              height={32}
+              className="h-8 w-auto max-w-[112px] shrink-0 object-contain"
+            />
             <span className="flex flex-col leading-tight">
               <span className="font-display text-lg font-bold tracking-wide text-maroon-800 sm:text-xl">
                 {APP_NAME}

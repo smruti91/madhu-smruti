@@ -7,6 +7,9 @@ export const APP_NAME = "MADHU SMRUTI";
 export const APP_NAME_ODIA = "ମଧୁ ସ୍ମୃତି";
 export const ORGANIZATION = "MDRAFM";
 
+/** Magazine logo hosted on ImageKit. */
+export const LOGO_URL = "https://ik.imagekit.io/flt5inegiq/logo.webp";
+
 /** Short editorial strapline used across the landing page. */
 export const MAGAZINE_TAGLINE = "A memorial magazine of stories, verses and paintings";
 
