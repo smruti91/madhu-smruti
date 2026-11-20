@@ -52,3 +52,18 @@ export const publicLimiter = rateLimit({
   legacyHeaders: false,
   message,
 });
+
+/**
+ * Strict limiter for the token-entry verification endpoint. Tokens are
+ * 256-bit, but this still caps online guessing attempts per address.
+ */
+export const tokenVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: "Too many token attempts, please try again later",
+  },
+});

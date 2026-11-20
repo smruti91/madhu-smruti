@@ -119,6 +119,27 @@ never be recovered.
 
 ---
 
+### POST /api/submissions/verify-token
+
+Cross-device draft access. The contributor pastes the **Draft Access Token**
+that was shown once when the draft was saved. The server hashes it with
+SHA-256, looks up the matching draft (unique index), and returns only the
+submission id/summary — the raw token is never echoed back. Rate limited to
+30 attempts / 15 min; all failures use the same generic message.
+
+**Body** `{ "token": "<draft access token>" }`
+
+**Response** `200`
+```json
+{ "submissionId": "...", "submission": { "id", "referenceNumber", "title", "status": "draft", "...": "..." } }
+```
+
+**Errors** `400` missing token · `401` invalid token or no longer a draft · `429` too many attempts
+
+Use the returned id as `/submit?draft=<id>&token=<the pasted token>` in the
+frontend; the existing token-guarded GET/PUT endpoints then load and update
+the draft in place without duplicating it.
+
 ### GET /api/submissions/search?phone=...
 
 Public "Track Article" search. Normalizes the Indian mobile number (accepts

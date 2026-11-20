@@ -8,6 +8,15 @@ const writeupSchema = z.object({
   htmlContent: z.string().min(1, "Writeup content is required"),
 });
 
+/** Token entered on the Track / Edit Article screen (cross-device access). */
+export const verifyDraftTokenSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .min(1, "Enter your draft access token")
+    .max(255, "This token is too long"),
+});
+
 const paintingImageSchema = z.object({
   // Must come from the upload endpoints (ImageKit) - never raw binary in JSON
   imageUrl: z.string().url("A valid image URL is required"),
@@ -115,3 +124,4 @@ export const updateSubmissionSchema = z
 
 export type CreateSubmissionInput = z.infer<typeof createSubmissionSchema>;
 export type UpdateSubmissionInput = z.infer<typeof updateSubmissionSchema>;
+export type VerifyDraftTokenInput = z.infer<typeof verifyDraftTokenSchema>;

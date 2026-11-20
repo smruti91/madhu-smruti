@@ -82,6 +82,7 @@ export interface WriteupContent {
 export interface PaintingImage {
   id: string;
   imageUrl: string;
+  imagekitFileId?: string | null;
   caption: string | null;
   displayOrder: number;
   createdAt: string;

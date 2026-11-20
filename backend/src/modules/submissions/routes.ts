@@ -7,16 +7,33 @@ import {
   resumeEditingHandler,
   searchSubmissionsHandler,
   updateSubmissionHandler,
+  verifyDraftTokenHandler,
 } from "./controller";
 import { requireEditAccess } from "./middleware";
 import { validateBody } from "../../middleware/validate";
-import { editLimiter, publicLimiter } from "../../middleware/rateLimit";
-import { createSubmissionSchema, updateSubmissionSchema } from "./validator";
+import {
+  editLimiter,
+  publicLimiter,
+  tokenVerifyLimiter,
+} from "../../middleware/rateLimit";
+import {
+  createSubmissionSchema,
+  updateSubmissionSchema,
+  verifyDraftTokenSchema,
+} from "./validator";
 
 const router = Router();
 
 // POST /api/submissions - create draft (edit token returned once)
 router.post("/", validateBody(createSubmissionSchema), createSubmissionHandler);
+
+// POST /api/submissions/verify-token - cross-device draft token verification
+router.post(
+  "/verify-token",
+  tokenVerifyLimiter,
+  validateBody(verifyDraftTokenSchema),
+  verifyDraftTokenHandler
+);
 
 // GET /api/submissions/search - public search by phone number
 router.get("/search", publicLimiter, searchSubmissionsHandler);

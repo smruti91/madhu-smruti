@@ -178,6 +178,53 @@ d("Submission lifecycle with edit tokens", () => {
     expect(JSON.stringify(res.body.data)).not.toContain("token");
   });
 
+  it("verifies a draft token for cross-device editing without echoing it", async () => {
+    const res = await request(app)
+      .post("/api/v1/submissions/verify-token")
+      .send({ token: writeupToken });
+    expect(res.status).toBe(200);
+    expect(res.body.data.submissionId).toBe(writeupId);
+    expect(res.body.data.submission.status).toBe("draft");
+    expect(JSON.stringify(res.body)).not.toContain(writeupToken);
+    expect(JSON.stringify(res.body)).not.toContain("editTokenHash");
+  });
+
+  it("rejects an empty or invalid draft token", async () => {
+    const empty = await request(app)
+      .post("/api/v1/submissions/verify-token")
+      .send({ token: "" });
+    expect(empty.status).toBe(400);
+
+    const invalid = await request(app)
+      .post("/api/v1/submissions/verify-token")
+      .send({ token: "not-a-real-draft-token" });
+    expect(invalid.status).toBe(401);
+    expect(invalid.body.message).toBe("Invalid draft access token");
+  });
+
+  it("cannot open another draft by changing the id while using a valid token", async () => {
+    // Created later in this suite, so create a dedicated second draft here.
+    const second = await createSubmission({
+      contributorId,
+      title: "Second Draft",
+      language: "english",
+      submissionType: "painting",
+      painting: { images: [{ imageUrl: "https://ik.imagekit.io/demo/cross.png" }] },
+    });
+    expect(second.status).toBe(201);
+    const otherId = second.body.data.submission.id;
+
+    const res = await request(app)
+      .get(`/api/v1/submissions/${otherId}`)
+      .set("X-Edit-Token", writeupToken);
+    expect(res.status).toBe(401);
+
+    const verify = await request(app)
+      .get(`/api/v1/submissions/${otherId}`)
+      .set("X-Edit-Token", second.body.data.editToken);
+    expect(verify.status).toBe(200);
+  });
+
   it("updates an authorized draft", async () => {
     const res = await request(app)
       .put(`/api/v1/submissions/${writeupId}`)
@@ -292,6 +339,20 @@ d("Submission lifecycle with edit tokens", () => {
       .post(`/api/v1/submissions/${writeupId}/resume`)
       .set("X-Edit-Token", writeupToken);
     expect(res.status).toBe(409);
+  });
+
+  it("does not allow draft-token editing once the article is finalized", async () => {
+    const res = await request(app)
+      .post("/api/v1/submissions/verify-token")
+      .send({ token: writeupToken });
+    expect(res.status).toBe(401);
+    expect(res.body.message).toBe("Invalid draft access token");
+
+    const edit = await request(app)
+      .put(`/api/v1/submissions/${writeupId}`)
+      .set("X-Edit-Token", writeupToken)
+      .send({ title: "Should not change" });
+    expect(edit.status).toBe(409);
   });
 
   it("creates a painting submission with image references", async () => {

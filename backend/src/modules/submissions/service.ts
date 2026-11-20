@@ -380,6 +380,32 @@ export async function resumeEditingSession(submission: Submission) {
   };
 }
 
+/**
+ * Cross-device draft access: looks up a draft by its token hash alone.
+ * The raw token is never returned and must not be echoed by the API.
+ * All error paths use the same generic message so nothing about the existence
+ * or status of a draft is revealed to token guessers.
+ */
+export async function verifyDraftTokenForEditing(rawToken: string) {
+  const db = getDb();
+  const tokenHash = hashEditToken(rawToken);
+
+  const [submission] = await db
+    .select()
+    .from(submissions)
+    .where(eq(submissions.editTokenHash, tokenHash));
+
+  if (!submission || submission.status !== "draft") {
+    throw HttpError.unauthorized("Invalid draft access token");
+  }
+
+  const contributor = await getContributorOrThrow(submission.contributorId);
+  return {
+    submissionId: submission.id,
+    submission: submissionSummary(submission, contributor),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Admin operations
 // ---------------------------------------------------------------------------

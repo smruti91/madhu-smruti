@@ -41,6 +41,9 @@ export const submissions = pgTable(
   },
   (table) => [
     uniqueIndex("submissions_reference_number_unique").on(table.referenceNumber),
+    // A token always maps to exactly one draft (NULLs are allowed for rows
+    // that have no token, e.g. admin-created records).
+    uniqueIndex("submissions_edit_token_hash_unique").on(table.editTokenHash),
     index("submissions_contributor_id_idx").on(table.contributorId),
     index("submissions_status_idx").on(table.status),
     index("submissions_type_idx").on(table.submissionType),

@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   CloudUpload,
+  Download,
   FileCheck2,
   KeyRound,
   Link2,
@@ -151,6 +152,7 @@ export function SubmissionPage() {
   const [finalizing, setFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ConfirmedResult | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
   const [previewContent, setPreviewContent] = useState<PreviewContent | null>(null);
@@ -308,6 +310,11 @@ export function SubmissionPage() {
           setPaintingImages(
             detail.images.map((image) => ({
               imageUrl: image.imageUrl,
+              // Keep the storage reference so re-saving never loses the
+              // original image even if the caption/order changes.
+              ...(image.imagekitFileId
+                ? { imagekitFileId: image.imagekitFileId }
+                : {}),
               ...(image.caption ? { caption: image.caption } : {}),
             }))
           );
@@ -454,9 +461,10 @@ export function SubmissionPage() {
     return createSubmission(payload);
   };
 
-  /** Handle "Save Draft": create-then-switch-to-edit, or manual PUT in edit mode. */
+  /** Handle "Save Draft": create + show token, or manual PUT in edit mode. */
   const handleSaveDraft = async () => {
     setError(null);
+    setSaveMessage(null);
 
     const validation = validateDraft();
     if (validation) {
@@ -481,17 +489,21 @@ export function SubmissionPage() {
         await saveExistingDraft(normalizedPhone);
         setSaveStatus("saved");
         setLastSavedAt(new Date());
-        // Stay on the page; the status badge confirms the save.
+        setSaveMessage("Your article has been saved successfully as a draft.");
       } else {
         dirtyRef.current = false;
         setIsDirty(false);
         const created = await createNewDraft(normalizedPhone!);
         persistEditToken(created.id, created.editToken);
-        // Switch into edit mode - autosave becomes active from here on.
-        navigate(
-          `/submit?draft=${created.id}&token=${encodeURIComponent(created.editToken)}`,
-          { replace: true }
-        );
+        // Show the one-time Draft Access Token before entering edit mode.
+        setResult({
+          submissionId: created.id,
+          referenceNumber: created.referenceNumber,
+          title: created.title,
+          submissionType: created.submissionType,
+          editToken: created.editToken,
+          finalized: false,
+        });
       }
     } catch (err) {
       setError((err as Error).message);
@@ -587,6 +599,7 @@ export function SubmissionPage() {
 
   const resetForm = () => {
     setResult(null);
+    setSaveMessage(null);
     setName("");
     setPhone("");
     setPhoneError(null);
@@ -609,6 +622,15 @@ export function SubmissionPage() {
       <ConfirmationScreen
         result={result}
         onStartAnother={isEditMode ? undefined : resetForm}
+        onContinue={
+          result.editToken && !result.finalized
+            ? () => {
+                const target = `/submit?draft=${result.submissionId}&token=${encodeURIComponent(result.editToken!)}`;
+                setResult(null);
+                navigate(target);
+              }
+            : undefined
+        }
       />
     );
   }
@@ -640,6 +662,22 @@ export function SubmissionPage() {
 
   return (
     <form onSubmit={handleFinalSubmit} className="mx-auto max-w-3xl space-y-8">
+      {!isEditMode ? (
+        <div className="flex flex-wrap gap-3 rounded-xl border border-gold-300 bg-cream-50 p-3" role="group" aria-label="Submission options">
+          <span className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-maroon-600 px-4 py-2.5 text-sm font-semibold text-white">
+            <PenLine className="h-4 w-4" aria-hidden="true" />
+            Write New Article
+          </span>
+          <Link
+            to="/track?mode=token"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-maroon-300 bg-white px-4 py-2.5 text-sm font-semibold text-maroon-700 transition-colors hover:bg-maroon-100"
+          >
+            <KeyRound className="h-4 w-4" aria-hidden="true" />
+            Track / Edit Article
+          </Link>
+        </div>
+      ) : null}
+
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold text-maroon-800">
@@ -855,6 +893,13 @@ export function SubmissionPage() {
       {error ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </p>
+      ) : null}
+
+      {saveMessage ? (
+        <p className="rounded-lg border border-leaf-200 bg-leaf-100 px-4 py-3 text-sm text-leaf-700" role="status">
+          <CheckCircle2 className="mr-2 inline h-4 w-4" aria-hidden="true" />
+          {saveMessage}
         </p>
       ) : null}
 
@@ -1155,9 +1200,11 @@ function AutosaveBadge({
 function ConfirmationScreen({
   result,
   onStartAnother,
+  onContinue,
 }: {
   result: ConfirmedResult;
   onStartAnother?: () => void;
+  onContinue?: () => void;
 }) {
   const [copied, setCopied] = useState<"token" | "link" | null>(null);
 
@@ -1168,6 +1215,31 @@ function ConfirmationScreen({
   };
 
   const link = resumeLink(result.submissionId, result.editToken ?? "");
+
+  /** Saves the raw token + resume link to a local text file. */
+  const downloadToken = () => {
+    if (!result.editToken) return;
+    const content = [
+      "MADHU SMRUTI — DRAFT ACCESS TOKEN",
+      "",
+      `Reference: ${result.referenceNumber}`,
+      `Title: ${result.title}`,
+      "",
+      `Draft Access Token: ${result.editToken}`,
+      `Resume link: ${link}`,
+      "",
+      "Keep this file safe. You need the token to access and edit your draft",
+      "from another browser or device. It cannot be recovered if lost.",
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob([content], { type: "text/plain;charset=utf-8" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `madhu-smruti-draft-token-${result.referenceNumber}.txt`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="mx-auto max-w-lg rounded-xl border border-leaf-200 bg-leaf-100 p-8 text-center">
@@ -1182,9 +1254,7 @@ function ConfirmationScreen({
       <p className="mt-2 text-sm text-leaf-700">
         {result.finalized
           ? `Your ${result.submissionType === "writeup" ? "write-up" : "painting"} has been submitted to the MADHU SMRUTI editorial team for review. Thank you!`
-          : result.editToken
-            ? `Thank you! Your ${result.submissionType === "writeup" ? "write-up" : "painting"} draft has been recorded.`
-            : "Your changes have been saved and the submission is ready for the editorial team."}
+          : "Your article has been saved successfully as a draft."}
       </p>
 
       <div className="mt-5 rounded-lg bg-cream-50 p-5 text-left">
@@ -1195,26 +1265,34 @@ function ConfirmationScreen({
         <p className="mt-1 font-mono text-lg text-maroon-700">{result.referenceNumber}</p>
         <p className="mt-0.5 truncate text-xs text-ink-400">“{result.title}”</p>
 
-        {result.editToken ? (
+        {result.editToken && !result.finalized ? (
           <>
             <div className="mt-4 flex items-center gap-2 border-t border-gold-200 pt-3">
               <KeyRound className="h-4 w-4 text-gold-600" aria-hidden="true" />
-              <span className="text-sm font-semibold text-ink-700">Your private edit token</span>
+              <span className="text-sm font-semibold text-ink-700">Draft Access Token</span>
               <button
                 type="button"
                 onClick={() => copy("token", result.editToken!)}
                 className="ml-auto text-xs font-medium text-maroon-700 underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-maroon-800"
               >
-                {copied === "token" ? "Copied!" : "Copy"}
+                {copied === "token" ? "Copied!" : "Copy Token"}
               </button>
             </div>
             <p className="mt-1 break-all font-mono text-xs text-gold-700">
               {result.editToken}
             </p>
+            <button
+              type="button"
+              onClick={downloadToken}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-gold-300 bg-cream-50 px-3 py-1.5 text-xs font-medium text-maroon-700 hover:bg-gold-100"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden="true" />
+              Download / Save Token
+            </button>
           </>
         ) : null}
 
-        {result.editToken ? (
+        {result.editToken && !result.finalized ? (
           <>
             <div className="mt-4 flex items-center gap-2 border-t border-gold-200 pt-3">
               <Link2 className="h-4 w-4 text-gold-600" aria-hidden="true" />
@@ -1236,16 +1314,21 @@ function ConfirmationScreen({
             </a>
 
             <p className="mt-3 border-t border-gold-200 pt-3 text-xs leading-relaxed text-ink-500">
-              Save this link and token now (they are also stored in this browser). They are
-              the <strong className="text-ink-700">only</strong> way to view or edit this draft
-              later — the token is stored on our servers as an unreadable hash and cannot be
-              recovered.
+              Please save this token securely. You will need it to access and edit your
+              draft from another browser or device. We cannot retrieve your token if you
+              lose it.
             </p>
           </>
         ) : null}
       </div>
 
-      <div className="mt-6 flex justify-center gap-3">
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        {onContinue ? (
+          <Button onClick={onContinue}>
+            <PenLine className="h-4 w-4" aria-hidden="true" />
+            Continue editing
+          </Button>
+        ) : null}
         {onStartAnother ? (
           <Button variant="outline" onClick={onStartAnother}>
             Submit another

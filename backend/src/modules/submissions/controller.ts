@@ -7,6 +7,7 @@ import {
   listSubmissionsByPhone,
   resumeEditingSession,
   updateSubmission,
+  verifyDraftTokenForEditing,
 } from "./service";
 import { getContributorById } from "../contributors/service";
 import { HttpError } from "../../utils/errors";
@@ -40,6 +41,17 @@ export async function createSubmissionHandler(req: Request, res: Response): Prom
     "Draft submission created. Store the editToken securely - it cannot be recovered.",
     201
   );
+}
+
+/**
+ * POST /api/submissions/verify-token
+ * Public cross-device draft access: exchange a pasted draft token for the
+ * submission id. Never returns the raw token itself.
+ */
+export async function verifyDraftTokenHandler(req: Request, res: Response): Promise<void> {
+  const { token } = req.body as { token: string };
+  const result = await verifyDraftTokenForEditing(token);
+  sendSuccess(res, result, "Draft access token verified");
 }
 
 /**

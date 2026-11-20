@@ -11,6 +11,7 @@ import {
   X,
   User,
   Pencil,
+  KeyRound,
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -18,6 +19,7 @@ import { Spinner } from "../components/ui/Spinner";
 import {
   getTrackedSubmission,
   searchSubmissionsByPhone,
+  verifyDraftToken,
 } from "../api/submissions";
 import { formatIndianMobile, normalizeIndianMobile } from "../utils/phone";
 import type {
@@ -59,6 +61,19 @@ function getSavedEditToken(submissionId: string): string | null {
   }
 }
 
+/** Remember a token entered on this device so later autosaves keep working. */
+function saveEditToken(submissionId: string, token: string): void {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(EDIT_TOKENS_STORAGE_KEY) ?? "{}"
+    ) as Record<string, string>;
+    stored[submissionId] = token;
+    localStorage.setItem(EDIT_TOKENS_STORAGE_KEY, JSON.stringify(stored));
+  } catch {
+    // storage unavailable - navigation still works for this session
+  }
+}
+
 /**
  * Search Article by Phone Number page.
  *
@@ -70,6 +85,12 @@ function getSavedEditToken(submissionId: string): string | null {
 export function SearchArticlePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<"phone" | "token">(
+    searchParams.get("mode") === "token" ? "token" : "phone"
+  );
+  const [draftToken, setDraftToken] = useState("");
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const [phone, setPhone] = useState(searchParams.get("phone") ?? "");
   const [normalizedPhone, setNormalizedPhone] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -115,6 +136,33 @@ export function SearchArticlePage() {
     setDetail(null);
   };
 
+  /** Verify a pasted Draft Access Token and open the draft for editing. */
+  const verifyToken = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setTokenError(null);
+    const cleanToken = draftToken.trim();
+
+    if (!cleanToken) {
+      setTokenError("Enter your draft access token to continue.");
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      const { submissionId } = await verifyDraftToken(cleanToken);
+      saveEditToken(submissionId, cleanToken);
+      navigate(
+        `/submit?draft=${submissionId}&token=${encodeURIComponent(cleanToken)}`
+      );
+    } catch (err) {
+      setTokenError(
+        (err as Error).message || "Invalid draft access token. Please check and try again."
+      );
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const openArticle = async (submissionId: string) => {
     if (!normalizedPhone) return;
     setDetailError(null);
@@ -135,7 +183,7 @@ export function SearchArticlePage() {
     const savedToken = getSavedEditToken(submissionId);
     if (!savedToken) {
       setEditNotice(
-        "This draft was created on another device. Use the private resume link from your confirmation message to edit it."
+        "This draft was created on another device. Open the “Use draft access token” tab above and enter your Draft Access Token to edit it."
       );
       return;
     }
@@ -149,49 +197,133 @@ export function SearchArticlePage() {
     <div className="mx-auto max-w-3xl space-y-8">
       <header className="text-center">
         <h1 className="font-display text-3xl font-bold text-maroon-800">
-          Track Your Submission
+          Track / Edit Article
         </h1>
         <p className="mt-2 text-sm text-ink-500">
-          Enter the mobile number you used to submit. Find your write-ups and
-          paintings and check whether they&apos;re still drafts or already submitted.
+          Find your articles by mobile number, or use your Draft Access Token to
+          edit from any browser or device.
         </p>
       </header>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-xl border border-gold-300 bg-cream-50 p-6"
-      >
-        <Input
-          label="Mobile number"
-          type="tel"
-          value={phone}
-          onChange={(e) => handlePhoneChange(e.target.value)}
-          placeholder="e.g. 98765 43210 or +91 98765 43210"
-          error={phoneError ?? undefined}
-          autoComplete="tel"
-          autoFocus
-          disabled={loading}
-          maxLength={20}
-        />
-        <p className="text-xs text-ink-400">
-          We accept 10-digit numbers, +91 prefixes, and common separators.
-        </p>
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? (
-            <>
-              <Spinner size="sm" />
-              Searching…
-            </>
-          ) : (
-            <>
-              <Search className="h-4 w-4" aria-hidden="true" />
-              Search Articles
-            </>
-          )}
-        </Button>
-      </form>
+      <div className="flex flex-wrap justify-center gap-2" role="tablist" aria-label="Tracking mode">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "phone"}
+          onClick={() => {
+            setMode("phone");
+            setTokenError(null);
+          }}
+          className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+            mode === "phone"
+              ? "border-maroon-600 bg-maroon-600 text-white"
+              : "border-gold-300 bg-cream-50 text-ink-600 hover:bg-gold-100"
+          }`}
+        >
+          Search by mobile number
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === "token"}
+          onClick={() => {
+            setMode("token");
+            setError(null);
+            setResults(null);
+          }}
+          className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+            mode === "token"
+              ? "border-maroon-600 bg-maroon-600 text-white"
+              : "border-gold-300 bg-cream-50 text-ink-600 hover:bg-gold-100"
+          }`}
+        >
+          Use draft access token
+        </button>
+      </div>
 
-      {error ? (
+      {mode === "phone" ? (
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-xl border border-gold-300 bg-cream-50 p-6"
+        >
+          <Input
+            label="Mobile number"
+            type="tel"
+            value={phone}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+            placeholder="e.g. 98765 43210 or +91 98765 43210"
+            error={phoneError ?? undefined}
+            autoComplete="tel"
+            autoFocus
+            disabled={loading}
+            maxLength={20}
+          />
+          <p className="text-xs text-ink-400">
+            We accept 10-digit numbers, +91 prefixes, and common separators.
+          </p>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? (
+              <>
+                <Spinner size="sm" />
+                Searching…
+              </>
+            ) : (
+              <>
+                <Search className="h-4 w-4" aria-hidden="true" />
+                Search Articles
+              </>
+            )}
+          </Button>
+        </form>
+      ) : (
+        <form
+          onSubmit={verifyToken}
+          className="space-y-4 rounded-xl border border-gold-300 bg-cream-50 p-6"
+        >
+          <div className="flex flex-col gap-1">
+            <label htmlFor="draft-access-token" className="text-sm font-medium text-slate-700">
+              Draft Access Token
+            </label>
+            <textarea
+              id="draft-access-token"
+              value={draftToken}
+              onChange={(e) => {
+                setDraftToken(e.target.value);
+                setTokenError(null);
+              }}
+              rows={3}
+              maxLength={255}
+              autoFocus
+              disabled={verifying}
+              placeholder="Paste the Draft Access Token you saved when you created the draft"
+              aria-invalid={Boolean(tokenError)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-ink-900 placeholder:text-ink-400 focus:outline-2 focus:outline-offset-1 focus:outline-gold-500 disabled:opacity-60"
+            />
+            {tokenError ? (
+              <p className="text-xs text-red-600" role="alert">{tokenError}</p>
+            ) : null}
+            <p className="text-xs text-ink-400">
+              Your token was shown once when the draft was saved. It cannot be
+              recovered — use the copy you saved.
+            </p>
+          </div>
+          <Button type="submit" className="w-full" disabled={verifying}>
+            {verifying ? (
+              <>
+                <Spinner size="sm" />
+                Verifying token…
+              </>
+            ) : (
+              <>
+                <KeyRound className="h-4 w-4" aria-hidden="true" />
+                Verify &amp; edit draft
+              </>
+            )}
+          </Button>
+        </form>
+      )}
+
+      {mode === "phone" && error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center" role="alert">
           <AlertCircle className="mx-auto h-8 w-8 text-red-500" aria-hidden="true" />
           <p className="mt-2 text-sm text-red-700">{error}</p>
@@ -204,7 +336,7 @@ export function SearchArticlePage() {
         </div>
       ) : null}
 
-      {results !== null && results.length === 0 ? (
+      {mode === "phone" && results !== null && results.length === 0 ? (
         <div className="rounded-xl border border-gold-200 bg-cream-50 p-8 text-center">
           <Phone className="mx-auto h-12 w-12 text-ink-300" aria-hidden="true" />
           <h2 className="mt-4 font-display text-lg font-semibold text-maroon-700">
@@ -225,7 +357,7 @@ export function SearchArticlePage() {
         </div>
       ) : null}
 
-      {results !== null && results.length > 0 ? (
+      {mode === "phone" && results !== null && results.length > 0 ? (
         <section className="space-y-4" aria-label="Search results">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-maroon-800">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gold-100 text-sm font-bold text-gold-700">
@@ -248,9 +380,8 @@ export function SearchArticlePage() {
       ) : null}
 
       <p className="text-center text-xs text-ink-400">
-        Need help? Contact the MDRAFM editorial team. Drafts created in this
-        browser can be edited directly; on another device, use the private
-        resume link from your confirmation message.
+        Need help? Contact the MDRAFM editorial team. Your Draft Access Token
+        works on any browser or device — keep it safe, it cannot be recovered.
       </p>
 
       {detailLoading ? (

@@ -72,6 +72,19 @@ export async function searchSubmissionsByPhone(
   return response.data.data.submissions;
 }
 
+/**
+ * Verifies a pasted Draft Access Token on the cross-device edit screen.
+ * Returns only the submission id/summary - the raw token is not echoed back.
+ */
+export async function verifyDraftToken(
+  token: string
+): Promise<{ submissionId: string; submission: SubmissionDetail }> {
+  const response = await apiClient.post<
+    ApiSuccess<{ submissionId: string; submission: SubmissionDetail }>
+  >("/submissions/verify-token", { token });
+  return response.data.data;
+}
+
 /** Public read-only article view - no token needed, view only. */
 export async function getTrackedSubmission(
   submissionId: string,

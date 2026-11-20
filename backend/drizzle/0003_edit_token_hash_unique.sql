@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "submissions_edit_token_hash_unique" ON "submissions" USING btree ("edit_token_hash");
