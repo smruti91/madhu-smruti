@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Feather, PenLine } from "lucide-react";
-import { APP_NAME, APP_NAME_ODIA, ORGANIZATION } from "../../config/constants";
+import { APP_NAME, LOGO_URL, ORGANIZATION } from "../../config/constants";
 import { ArchWatermark, LotusDivider } from "../illustrations/artwork";
 import { LinkButton } from "../ui/LinkButton";
 
@@ -25,9 +25,13 @@ export function Hero() {
         <h1 className="mt-5 font-display text-5xl font-black leading-tight tracking-wide text-maroon-800 sm:text-7xl">
           {APP_NAME}
         </h1>
-        <p className="text-odia mt-3 text-3xl font-semibold text-gold-600 sm:text-4xl">
-          {APP_NAME_ODIA}
-        </p>
+        <img
+          src={LOGO_URL}
+          alt={`${APP_NAME} logo`}
+          width={320}
+          height={107}
+          className="mx-auto mt-4 h-16 w-auto max-w-full object-contain sm:h-20"
+        />
 
         <LotusDivider className="mx-auto mt-6" />
 
