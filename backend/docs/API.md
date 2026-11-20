@@ -119,6 +119,30 @@ never be recovered.
 
 ---
 
+### GET /api/submissions/search?phone=...
+
+Public "Track Article" search. Normalizes the Indian mobile number (accepts
+`98765 43210`, `+91 98765 43210`, trunk prefixes) and returns lightweight
+summaries of every submission for that contributor, most recent first.
+**No edit credentials are included.** Rate limited.
+
+**Response** `200`
+```json
+{ "submissions": [ { "id", "referenceNumber", "title", "submissionType", "language", "status", "createdAt", "updatedAt", "submittedAt" } ] }
+```
+
+### GET /api/submissions/track/:id?phone=...
+
+Public read-only article view used when a contributor clicks a search result.
+The phone number must belong to the contributor who owns the article. It opens
+the article **without a token**, but never returns edit credentials, and all
+mutation endpoints remain token-guarded. Rate limited.
+
+**Response** `200` — full read-only detail (same shape as the private GET).
+**Errors** `400` missing/invalid phone · `404` not found or phone mismatch
+
+---
+
 ### GET /api/submissions/:id 🔒
 
 Full submission detail. **Private**: requires the raw edit token or a

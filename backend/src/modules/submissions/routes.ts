@@ -3,6 +3,7 @@ import {
   createSubmissionHandler,
   finalizeSubmissionHandler,
   getSubmissionHandler,
+  getTrackedSubmissionHandler,
   resumeEditingHandler,
   searchSubmissionsHandler,
   updateSubmissionHandler,
@@ -19,6 +20,9 @@ router.post("/", validateBody(createSubmissionSchema), createSubmissionHandler);
 
 // GET /api/submissions/search - public search by phone number
 router.get("/search", publicLimiter, searchSubmissionsHandler);
+
+// GET /api/submissions/track/:id - public read-only view by phone number
+router.get("/track/:id", publicLimiter, getTrackedSubmissionHandler);
 
 // GET /api/submissions/:id - private access with edit token only
 router.get("/:id", editLimiter, requireEditAccess, getSubmissionHandler);

@@ -461,6 +461,34 @@ function buildAdminFilters(query: AdminListQuery | AdminExportQuery) {
   return filters.length > 0 ? and(...filters) : undefined;
 }
 
+/**
+ * Public read-only view used by the "Track Article" page.
+ *
+ * The phone number identifies the contributor and therefore authorizes a
+ * VIEW of their own articles without any token. This endpoint never returns
+ * edit credentials — modifying a submission still requires the private token.
+ */
+export async function getTrackedSubmissionDetail(id: string, rawPhone: string) {
+  const db = getDb();
+  const phone = normalizeIndianMobile(rawPhone);
+  if (!phone) throw HttpError.badRequest("A valid phone number is required");
+
+  const [contributor] = await db
+    .select()
+    .from(contributors)
+    .where(eq(contributors.phone, phone));
+  if (!contributor) throw HttpError.notFound("Submission not found for this phone number");
+
+  const [submission] = await db
+    .select()
+    .from(submissions)
+    .where(and(eq(submissions.id, id), eq(submissions.contributorId, contributor.id)));
+  // Deliberately identical error for "someone else's" and non-existent ids.
+  if (!submission) throw HttpError.notFound("Submission not found for this phone number");
+
+  return buildSubmissionDetail(submission, contributor);
+}
+
 export async function listSubmissionsForAdmin(query: AdminListQuery) {
   const db = getDb();
   const offset = (query.page - 1) * query.limit;

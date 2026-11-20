@@ -469,6 +469,29 @@ d("Search submissions by phone number", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.submissions.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("views an article directly by phone number without a token", async () => {
+    const res = await request(app)
+      .get(`/api/v1/submissions/track/${writeupId}`)
+      .query({ phone });
+    expect(res.status).toBe(200);
+    expect(res.body.data.writeup.htmlContent).toContain("figcaption");
+    // Viewing never leaks edit credentials.
+    expect(JSON.stringify(res.body)).not.toContain("editToken");
+    expect(JSON.stringify(res.body)).not.toContain("editTokenHash");
+  });
+
+  it("requires a phone number to view an article", async () => {
+    const res = await request(app).get(`/api/v1/submissions/track/${writeupId}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("does not reveal an article to a different phone number", async () => {
+    const res = await request(app)
+      .get(`/api/v1/submissions/track/${writeupId}`)
+      .query({ phone: "+91 99999 88888" });
+    expect(res.status).toBe(404);
+  });
 });
 
 d("Admin authentication and APIs", () => {

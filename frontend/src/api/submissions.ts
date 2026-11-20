@@ -71,3 +71,15 @@ export async function searchSubmissionsByPhone(
   );
   return response.data.data.submissions;
 }
+
+/** Public read-only article view - no token needed, view only. */
+export async function getTrackedSubmission(
+  submissionId: string,
+  phone: string
+): Promise<SubmissionDetail> {
+  const response = await apiClient.get<ApiSuccess<SubmissionDetail>>(
+    `/submissions/track/${submissionId}`,
+    { params: { phone } }
+  );
+  return response.data.data;
+}

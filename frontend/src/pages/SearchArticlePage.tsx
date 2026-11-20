@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Search,
   Phone,
@@ -8,18 +8,21 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Eye,
-  Pencil,
-  KeyRound,
-  ChevronDown,
-  ChevronUp,
+  X,
+  User,
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Spinner } from "../components/ui/Spinner";
-import { searchSubmissionsByPhone } from "../api/submissions";
-import { normalizeIndianMobile } from "../utils/phone";
-import type { SubmissionSearchResult } from "../types/submission";
+import {
+  getTrackedSubmission,
+  searchSubmissionsByPhone,
+} from "../api/submissions";
+import { formatIndianMobile, normalizeIndianMobile } from "../utils/phone";
+import type {
+  SubmissionDetail,
+  SubmissionSearchResult,
+} from "../types/submission";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
@@ -40,26 +43,30 @@ const STATUS_STYLES: Record<string, string> = {
 /**
  * Search Article by Phone Number page.
  *
- * Contributors enter their Indian mobile number to find all their write-ups
- * and paintings. Results show status badges (Draft / Submitted) and an action
- * to open the private submission using the edit token from their saved link.
- *
- * Phone number alone NEVER grants edit access: every result action requires
- * the private edit token, which is matched against a server-side hash.
+ * Contributors enter their Indian mobile number to find their write-ups and
+ * paintings. Clicking a result opens a read-only view automatically - no token
+ * is needed to VIEW. Editing still requires the private edit token through the
+ * original resume link, which is never exposed by this page.
  */
 export function SearchArticlePage() {
   const [searchParams] = useSearchParams();
   const [phone, setPhone] = useState(searchParams.get("phone") ?? "");
+  const [normalizedPhone, setNormalizedPhone] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [results, setResults] = useState<SubmissionSearchResult[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [detail, setDetail] = useState<SubmissionDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setResults(null);
     setPhoneError(null);
+    setDetail(null);
 
     const normalized = normalizeIndianMobile(phone);
     if (!normalized) {
@@ -70,6 +77,7 @@ export function SearchArticlePage() {
     setLoading(true);
     try {
       const submissions = await searchSubmissionsByPhone(normalized);
+      setNormalizedPhone(normalized);
       setResults(submissions);
     } catch (err) {
       setError((err as Error).message || "Search failed. Please try again.");
@@ -83,6 +91,21 @@ export function SearchArticlePage() {
     setPhoneError(null);
     setError(null);
     setResults(null);
+    setDetail(null);
+  };
+
+  const openArticle = async (submissionId: string) => {
+    if (!normalizedPhone) return;
+    setDetailError(null);
+    setDetailLoading(true);
+    try {
+      const data = await getTrackedSubmission(submissionId, normalizedPhone);
+      setDetail(data);
+    } catch (err) {
+      setDetailError((err as Error).message || "Could not open this article.");
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
   return (
@@ -167,27 +190,50 @@ export function SearchArticlePage() {
             </span>
             Submission{results.length !== 1 ? "s" : ""} found
           </h2>
+          <p className="text-xs text-ink-400">Click any article to view it.</p>
           <div className="space-y-3" role="list">
             {results.map((submission) => (
-              <ArticleCard key={submission.id} submission={submission} />
+              <ArticleCard
+                key={submission.id}
+                submission={submission}
+                onOpen={() => void openArticle(submission.id)}
+              />
             ))}
           </div>
         </section>
       ) : null}
 
       <p className="text-center text-xs text-ink-400">
-        Need help? Contact the MDRAFM editorial team. Your private edit token is
-        required to open a submission and is shown only once when you create it.
+        Need help? Contact the MDRAFM editorial team. To edit a draft, use the
+        private resume link you received when you created it.
       </p>
+
+      {detailLoading ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 p-4">
+          <div className="rounded-xl bg-cream-50 p-8">
+            <Spinner label="Opening article…" />
+          </div>
+        </div>
+      ) : null}
+
+      {detailError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700" role="alert">
+          {detailError}
+        </div>
+      ) : null}
+
+      {detail ? <ArticleView detail={detail} onClose={() => setDetail(null)} /> : null}
     </div>
   );
 }
 
-function ArticleCard({ submission }: { submission: SubmissionSearchResult }) {
-  const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(false);
-  const [token, setToken] = useState("");
-
+function ArticleCard({
+  submission,
+  onOpen,
+}: {
+  submission: SubmissionSearchResult;
+  onOpen: () => void;
+}) {
   const isDraft = submission.status === "draft";
   const displayDate = new Date(
     submission.submittedAt ?? submission.updatedAt ?? submission.createdAt
@@ -197,114 +243,180 @@ function ArticleCard({ submission }: { submission: SubmissionSearchResult }) {
     year: "numeric",
   });
 
-  const openSubmission = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const cleanToken = token.trim();
-    if (!cleanToken) return;
-    navigate(`/resume/${submission.id}?token=${encodeURIComponent(cleanToken)}`);
-  };
-
   return (
-    <article
-      className="rounded-xl border border-gold-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+    <button
+      type="button"
+      onClick={onOpen}
       role="listitem"
+      className="block w-full rounded-xl border border-gold-200 bg-white p-5 text-left shadow-sm transition-all hover:border-gold-400 hover:shadow-md focus:outline-2 focus:outline-offset-2 focus:outline-gold-500"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-100 text-maroon-600">
-              {submission.submissionType === "writeup" ? (
-                <FileText className="h-5 w-5" aria-hidden="true" />
-              ) : (
-                <Palette className="h-5 w-5" aria-hidden="true" />
-              )}
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cream-100 text-maroon-600">
+            {submission.submissionType === "writeup" ? (
+              <FileText className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Palette className="h-5 w-5" aria-hidden="true" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <h3 className="truncate font-display font-semibold text-maroon-800">
+              {submission.title}
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-ink-500">
+              <span className="font-mono">{submission.referenceNumber}</span>
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3 w-3" aria-hidden="true" />
+                {displayDate}
+              </span>
+              <span className="capitalize">
+                {submission.submissionType === "writeup" ? "Write-up" : "Painting"}
+              </span>
             </div>
-            <div className="min-w-0">
-              <h3 className="truncate font-display font-semibold text-maroon-800">
-                {submission.title}
-              </h3>
-              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-ink-500">
-                <span className="font-mono">{submission.referenceNumber}</span>
-                <span className="inline-flex items-center gap-1">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                  STATUS_STYLES[submission.status] ?? STATUS_STYLES.draft
+                }`}
+              >
+                {isDraft ? (
                   <Clock className="h-3 w-3" aria-hidden="true" />
-                  {displayDate}
-                </span>
-                <span className="capitalize">
-                  {submission.submissionType === "writeup" ? "Write-up" : "Painting"}
-                </span>
-              </div>
+                ) : (
+                  <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                )}
+                {STATUS_LABELS[submission.status] ?? submission.status}
+              </span>
+              {submission.status === "approved" ? (
+                <span className="text-xs font-medium text-green-700">Published</span>
+              ) : null}
             </div>
           </div>
+        </div>
+        <span className="shrink-0 text-sm font-medium text-maroon-700">
+          View article →
+        </span>
+      </div>
+    </button>
+  );
+}
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
-                STATUS_STYLES[submission.status] ?? STATUS_STYLES.draft
-              }`}
-            >
-              {isDraft ? (
-                <Clock className="h-3 w-3" aria-hidden="true" />
-              ) : (
-                <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-              )}
-              {STATUS_LABELS[submission.status] ?? submission.status}
-            </span>
-            {submission.status === "approved" ? (
-              <span className="text-xs font-medium text-green-700">Published</span>
+/** Read-only article view opened automatically when a result is clicked. */
+function ArticleView({
+  detail,
+  onClose,
+}: {
+  detail: SubmissionDetail;
+  onClose: () => void;
+}) {
+  const isDraft = detail.status === "draft";
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-900/50 p-4 sm:p-8"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Article details"
+    >
+      <div className="w-full max-w-3xl rounded-xl border border-gold-300 bg-cream-50 shadow-xl">
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-gold-200 bg-cream-50 px-6 py-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${
+                  STATUS_STYLES[detail.status] ?? STATUS_STYLES.draft
+                }`}
+              >
+                {STATUS_LABELS[detail.status] ?? detail.status}
+              </span>
+              <span className="font-mono text-xs text-ink-400">
+                {detail.referenceNumber}
+              </span>
+            </div>
+            <h2 className="mt-2 font-display text-2xl font-bold text-maroon-800">
+              {detail.title}
+            </h2>
+            {detail.subtitle ? (
+              <p className="mt-1 text-sm text-ink-500">{detail.subtitle}</p>
             ) : null}
           </div>
-        </div>
-
-        <div className="flex shrink-0 items-center">
           <button
             type="button"
-            onClick={() => setExpanded((value) => !value)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gold-300 bg-cream-50 px-3 py-2 text-sm font-medium text-maroon-700 hover:bg-gold-100"
-            aria-expanded={expanded}
+            onClick={onClose}
+            className="rounded-lg p-2 text-ink-400 hover:bg-cream-200 hover:text-ink-700"
+            aria-label="Close article"
           >
-            {isDraft ? (
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <Eye className="h-4 w-4" aria-hidden="true" />
-            )}
-            {isDraft ? "Resume draft" : "View details"}
-            {expanded ? (
-              <ChevronUp className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <ChevronDown className="h-4 w-4" aria-hidden="true" />
-            )}
+            <X className="h-5 w-5" />
           </button>
         </div>
-      </div>
 
-      {expanded ? (
-        <form
-          onSubmit={openSubmission}
-          className="mt-4 border-t border-gold-200 pt-4"
-        >
-          <p className="mb-3 flex items-start gap-2 text-xs text-ink-500">
-            <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-gold-600" aria-hidden="true" />
-            <span>
-              Enter the private edit token from your confirmation message to{" "}
-              {isDraft ? "continue editing" : "view"} this submission. Phone number
-              alone cannot open it.
-            </span>
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              type="text"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="Paste your private edit token"
-              className="min-w-0 flex-1 rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-400 focus:outline-none"
-              aria-label="Private edit token"
-            />
-            <Button type="submit" disabled={!token.trim()}>
-              Open submission
-            </Button>
-          </div>
-        </form>
-      ) : null}
-    </article>
+        <div className="space-y-5 p-6">
+          <section className="flex flex-wrap gap-x-8 gap-y-2 rounded-lg border border-gold-200 bg-white p-4 text-sm">
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-gold-600" aria-hidden="true" />
+              <span className="text-ink-700">{detail.contributor.name}</span>
+              {detail.contributor.designation ? (
+                <span className="text-ink-400">· {detail.contributor.designation}</span>
+              ) : null}
+            </div>
+            <div className="text-ink-500">
+              {formatIndianMobile(detail.contributor.phone)}
+            </div>
+            <div className="text-ink-500 capitalize">{detail.language}</div>
+            <div className="text-ink-400">
+              Updated {new Date(detail.updatedAt).toLocaleDateString("en-IN")}
+            </div>
+          </section>
+
+          {detail.writeup ? (
+            <section className="rounded-lg border border-gold-200 bg-white p-6">
+              {detail.category ? (
+                <span className="mb-4 inline-block rounded-full bg-gold-100 px-2.5 py-0.5 text-xs font-medium text-gold-800">
+                  {detail.category}
+                </span>
+              ) : null}
+              <div
+                className="article-render"
+                dangerouslySetInnerHTML={{ __html: detail.writeup.htmlContent }}
+              />
+            </section>
+          ) : null}
+
+          {detail.images && detail.images.length > 0 ? (
+            <section className="rounded-lg border border-gold-200 bg-white p-6">
+              {detail.description ? (
+                <p className="mb-4 whitespace-pre-wrap text-sm text-ink-600">
+                  {detail.description}
+                </p>
+              ) : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {detail.images.map((image, index) => (
+                  <figure
+                    key={image.id}
+                    className="overflow-hidden rounded-xl border border-gold-200 bg-cream-100"
+                  >
+                    <img
+                      src={image.imageUrl}
+                      alt={image.caption || `Painting image ${index + 1}`}
+                      className="max-h-96 w-full object-contain"
+                    />
+                    {image.caption ? (
+                      <figcaption className="p-3 text-center text-sm italic text-ink-500">
+                        {image.caption}
+                      </figcaption>
+                    ) : null}
+                  </figure>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {isDraft ? (
+            <p className="rounded-lg border border-gold-200 bg-cream-100 p-4 text-center text-sm text-ink-500">
+              This article is still a draft. To edit it, use the private resume link
+              you received when you created it.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }

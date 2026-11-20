@@ -3,6 +3,7 @@ import {
   buildSubmissionDetail,
   createSubmission,
   finalizeSubmission,
+  getTrackedSubmissionDetail,
   listSubmissionsByPhone,
   resumeEditingSession,
   updateSubmission,
@@ -99,4 +100,24 @@ export async function searchSubmissionsHandler(req: Request, res: Response): Pro
 
   const results = await listSubmissionsByPhone(phone.trim());
   sendSuccess(res, { submissions: results }, "Search completed");
+}
+
+/**
+ * GET /api/submissions/track/:id?phone=...
+ * Public read-only article view for the phone-based tracking page.
+ * Editing still requires the private edit token via the guarded routes.
+ */
+export async function getTrackedSubmissionHandler(req: Request, res: Response): Promise<void> {
+  const { phone } = req.query;
+  if (!phone || typeof phone !== "string" || !phone.trim()) {
+    res.status(400).json({
+      success: false,
+      message: "Phone number is required to view this submission",
+    });
+    return;
+  }
+
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const detail = await getTrackedSubmissionDetail(id, phone.trim());
+  sendSuccess(res, detail);
 }
