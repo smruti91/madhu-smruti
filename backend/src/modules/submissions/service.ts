@@ -1,9 +1,10 @@
-import { and, desc, eq, like, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
 import { getDb } from "../../config/db";
 import {
   contributors,
   submissions,
   submissionHistory,
+  submissionImages,
 } from "../../db/schema";
 import { normalizeIndianMobile } from "../../utils/phone";
 
@@ -18,7 +19,7 @@ import {
   verifyEditSession,
 } from "../auth/service";
 import type { CreateSubmissionInput, UpdateSubmissionInput } from "./validator";
-import type { AdminListQuery } from "../admin/validator";
+import type { AdminExportQuery, AdminListQuery } from "../admin/validator";
 import { upsertWriteupContent, getWriteupContent } from "../writeups/service";
 import { listImages, replaceImages } from "../paintings/service";
 import { contributorPublicFields } from "../contributors/service";
@@ -175,6 +176,7 @@ export async function buildSubmissionDetail(submission: Submission, contributor:
     images: images?.map((image) => ({
       id: image.id,
       imageUrl: image.imageUrl,
+      imagekitFileId: image.imagekitFileId,
       caption: image.caption,
       displayOrder: image.displayOrder,
       createdAt: image.createdAt.toISOString(),
@@ -425,13 +427,15 @@ export async function listSubmissionsByPhone(phone: string) {
   }));
 }
 
-export async function listSubmissionsForAdmin(query: AdminListQuery) {
-  const db = getDb();
-  const offset = (query.page - 1) * query.limit;
-
+/**
+ * Builds the shared WHERE clause for admin list/export queries. All values are
+ * bound as SQL parameters by Drizzle — no string interpolation into SQL.
+ */
+function buildAdminFilters(query: AdminListQuery | AdminExportQuery) {
   const filters = [
     query.status ? eq(submissions.status, query.status) : undefined,
     query.submissionType ? eq(submissions.submissionType, query.submissionType) : undefined,
+    query.language ? eq(submissions.language, query.language) : undefined,
     query.search
       ? or(
           like(submissions.title, `%${query.search}%`),
@@ -439,9 +443,28 @@ export async function listSubmissionsForAdmin(query: AdminListQuery) {
           like(contributors.name, `%${query.search}%`)
         )
       : undefined,
+    query.contributorName
+      ? like(contributors.name, `%${query.contributorName}%`)
+      : undefined,
+    query.phone ? like(contributors.phone, `%${query.phone}%`) : undefined,
+    query.designation
+      ? like(contributors.designation, `%${query.designation}%`)
+      : undefined,
+    query.fromDate
+      ? gte(submissions.createdAt, new Date(`${query.fromDate}T00:00:00.000Z`))
+      : undefined,
+    query.toDate
+      ? lte(submissions.createdAt, new Date(`${query.toDate}T23:59:59.999Z`))
+      : undefined,
   ].filter(Boolean);
 
-  const where = filters.length > 0 ? and(...filters) : undefined;
+  return filters.length > 0 ? and(...filters) : undefined;
+}
+
+export async function listSubmissionsForAdmin(query: AdminListQuery) {
+  const db = getDb();
+  const offset = (query.page - 1) * query.limit;
+  const where = buildAdminFilters(query);
 
   const items = await db
     .select({
@@ -452,9 +475,11 @@ export async function listSubmissionsForAdmin(query: AdminListQuery) {
       language: submissions.language,
       status: submissions.status,
       createdAt: submissions.createdAt,
+      updatedAt: submissions.updatedAt,
       submittedAt: submissions.submittedAt,
       contributorName: contributors.name,
       contributorPhone: contributors.phone,
+      contributorDesignation: contributors.designation,
     })
     .from(submissions)
     .innerJoin(contributors, eq(submissions.contributorId, contributors.id))
@@ -475,6 +500,7 @@ export async function listSubmissionsForAdmin(query: AdminListQuery) {
     items: items.map((item) => ({
       ...item,
       createdAt: item.createdAt.toISOString(),
+      updatedAt: item.updatedAt.toISOString(),
       submittedAt: item.submittedAt?.toISOString() ?? null,
     })),
     page: query.page,
@@ -482,6 +508,28 @@ export async function listSubmissionsForAdmin(query: AdminListQuery) {
     total,
     totalPages: Math.max(1, Math.ceil(total / query.limit)),
   };
+}
+
+/** Looks up one painting image for the authenticated admin download route. */
+export async function getImageForDownload(submissionId: string, imageId: string) {
+  const db = getDb();
+  const [image] = await db
+    .select({
+      id: submissionImages.id,
+      submissionId: submissionImages.submissionId,
+      imageUrl: submissionImages.imageUrl,
+      imagekitFileId: submissionImages.imagekitFileId,
+      caption: submissionImages.caption,
+    })
+    .from(submissionImages)
+    .where(
+      and(
+        eq(submissionImages.id, imageId),
+        eq(submissionImages.submissionId, submissionId)
+      )
+    );
+  if (!image) throw HttpError.notFound("Image not found for this submission");
+  return image;
 }
 
 export async function getAdminSubmissionDetail(submissionId: string) {
@@ -576,9 +624,16 @@ export async function getDashboardStats() {
     .orderBy(desc(submissions.createdAt))
     .limit(5);
 
+  const totalSubmissions = Object.values(byStatus).reduce((a, b) => a + b, 0);
+
   return {
     totalContributors: contributorRow[0]?.count ?? 0,
-    totalSubmissions: Object.values(byStatus).reduce((a, b) => a + b, 0),
+    totalSubmissions,
+    // Explicit counts for the editorial dashboard cards (derived from the
+    // same single source of truth as byStatus).
+    totalDrafts: byStatus.draft,
+    totalFinalSubmissions: totalSubmissions - byStatus.draft,
+    pendingReviews: byStatus.under_review,
     byStatus,
     byType,
     recent: recent.map((item) => ({
@@ -588,8 +643,9 @@ export async function getDashboardStats() {
   };
 }
 
-export async function listForExport() {
+export async function listForExport(query?: AdminExportQuery) {
   const db = getDb();
+  const where = query ? buildAdminFilters(query) : undefined;
 
   const rows = await db
     .select({
@@ -606,6 +662,7 @@ export async function listForExport() {
     })
     .from(submissions)
     .innerJoin(contributors, eq(submissions.contributorId, contributors.id))
+    .where(where)
     .orderBy(desc(submissions.createdAt));
 
   return rows.map((row) => ({

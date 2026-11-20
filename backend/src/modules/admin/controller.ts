@@ -1,8 +1,10 @@
 import type { Request, Response } from "express";
 import { sendSuccess } from "../../utils/apiResponse";
+import { HttpError } from "../../utils/errors";
 import {
   getAdminSubmissionDetail,
   getDashboardStats,
+  getImageForDownload,
   listForExport,
   listSubmissionsForAdmin,
   updateSubmissionStatus,
@@ -10,7 +12,11 @@ import {
 import { adminCookieOptions } from "../auth/middleware";
 import { generateCsrfToken } from "../auth/service";
 import { loginAdmin } from "./auth.service";
-import type { AdminStatusInput, AdminLoginInput } from "./validator";
+import type {
+  AdminExportQuery,
+  AdminStatusInput,
+  AdminLoginInput,
+} from "./validator";
 
 /** Express 5 types allow string[] params; route params here are always single. */
 function idParam(value: string | string[]): string {
@@ -46,6 +52,15 @@ export function logoutHandler(_req: Request, res: Response): void {
   res.clearCookie("admin_session", { path: "/" });
   res.clearCookie("admin_csrf", { path: "/" });
   sendSuccess(res, null, "Logged out successfully");
+}
+
+/**
+ * GET /api/admin/me
+ * Lightweight session check used by the dashboard to guard routes and to
+ * restore the admin identity after a page reload.
+ */
+export function meHandler(req: Request, res: Response): void {
+  sendSuccess(res, { admin: req.admin });
 }
 
 /**
@@ -90,11 +105,49 @@ export async function updateStatusHandler(req: Request, res: Response): Promise<
 }
 
 /**
- * GET /api/admin/export
- * CSV export of all submissions with contributor details.
+ * GET /api/admin/submissions/:id/images/:imageId/download
+ * Streams the original painting image from ImageKit as an attachment.
  */
-export async function exportHandler(_req: Request, res: Response): Promise<void> {
-  const rows = await listForExport();
+export async function downloadImageHandler(req: Request, res: Response): Promise<void> {
+  const image = await getImageForDownload(
+    idParam(req.params.id),
+    idParam(req.params.imageId)
+  );
+
+  let upstream: globalThis.Response;
+  try {
+    upstream = await fetch(image.imageUrl);
+  } catch {
+    throw HttpError.badGateway("Could not reach the image provider");
+  }
+  if (!upstream.ok || !upstream.body) {
+    throw HttpError.badGateway("The original image could not be downloaded");
+  }
+
+  const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+  const ext = contentType.includes("png")
+    ? "png"
+    : contentType.includes("webp")
+      ? "webp"
+      : contentType.includes("jpeg") || contentType.includes("jpg")
+        ? "jpg"
+        : "img";
+  const baseName = (image.imagekitFileId || image.id).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 60);
+
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", `attachment; filename="${baseName}.${ext}"`);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.send(Buffer.from(await upstream.arrayBuffer()));
+}
+
+/**
+ * GET /api/admin/export
+ * CSV export of submissions with contributor details, honoring the same
+ * filters as the list endpoint.
+ */
+export async function exportHandler(req: Request, res: Response): Promise<void> {
+  const query = (req.validatedQuery ?? {}) as AdminExportQuery;
+  const rows = await listForExport(query);
 
   const headers = [
     "reference_number",

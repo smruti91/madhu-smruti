@@ -269,6 +269,12 @@ is used whether or not the account exists.
 
 **Errors** `400` validation · `401` invalid credentials · `429` too many attempts
 
+### GET /api/admin/me 🔐
+
+Lightweight session check for the dashboard route guard.
+
+**Response** `200` `{ "admin": { "sub", "email", "name" } }`
+
 ### POST /api/admin/logout 🔐
 
 Clears both cookies. Requires a valid session **and** CSRF header.
@@ -283,6 +289,9 @@ Clears both cookies. Requires a valid session **and** CSRF header.
 {
   "totalContributors": 12,
   "totalSubmissions": 34,
+  "totalDrafts": 3,
+  "totalFinalSubmissions": 31,
+  "pendingReviews": 2,
   "byStatus":  { "draft": 3, "submitted": 10, "under_review": 2, "approved": 17, "rejected": 2 },
   "byType":    { "writeup": 20, "painting": 14 },
   "recent":    [ { "id": "...", "referenceNumber": "...", "title": "...", "status": "...", "submissionType": "...", "createdAt": "...", "contributorName": "..." } ]
@@ -291,18 +300,28 @@ Clears both cookies. Requires a valid session **and** CSRF header.
 
 ### GET /api/admin/submissions 🔐
 
-Paginated list. **Query params**: `page` (default 1), `limit` (default 20, max
-100), `status`, `submissionType`, `search` (matches title / reference number /
-contributor name).
+Server-side paginated list — only one page is ever sent to the browser.
+**Query params**: `page` (default 1), `limit` (default 20, max 100),
+`status`, `submissionType`, `language`, `search` (title / reference / name),
+`contributorName`, `phone`, `designation` (partial matches), `fromDate` and
+`toDate` (`YYYY-MM-DD`, applied to creation date).
 
 **Response** `200`
 
 ```json
-{ "items": [ { "id", "referenceNumber", "title", "submissionType", "language", "status", "createdAt", "submittedAt", "contributorName", "contributorPhone" } ],
+{ "items": [ { "id", "referenceNumber", "title", "submissionType", "language", "status", "createdAt", "updatedAt", "submittedAt", "contributorName", "contributorPhone", "contributorDesignation" } ],
   "page": 1, "limit": 20, "total": 34, "totalPages": 2 }
 ```
 
 **Errors** `400` invalid query params
+
+### GET /api/admin/submissions/:id/images/:imageId/download 🔐
+
+Streams the original painting image from ImageKit as a downloadable attachment
+(`Content-Disposition: attachment`). The image is fetched server-side so the
+private ImageKit configuration is never exposed.
+
+**Errors** `401` no session · `404` image not found · `502` provider unavailable
 
 ### GET /api/admin/submissions/:id 🔐
 
@@ -324,9 +343,9 @@ The update and audit entry run in one **transaction**. Requires CSRF header.
 
 ### GET /api/admin/export 🔐
 
-CSV export of all submissions with contributor details. Responds with
-`Content-Type: text/csv` and a `Content-Disposition: attachment` header
-(UTF-8 BOM, quoted/escaped fields).
+CSV export with contributor details. Accepts the same filters as the list
+endpoint (pagination is ignored). Responds with `Content-Type: text/csv` and a
+`Content-Disposition: attachment` header (UTF-8 BOM, quoted/escaped fields).
 
 **Columns**: reference_number, title, submission_type, language, status,
 contributor_name, contributor_phone, contributor_designation, created_at,

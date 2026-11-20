@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { CheckCircle2, KeyRound, ShieldCheck } from "lucide-react";
-import { adminLogin, type AdminProfile } from "../api/admin";
+import { adminLogin, adminMe, type AdminProfile } from "../api/admin";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { APP_NAME, APP_NAME_ODIA, ORGANIZATION } from "../config/constants";
@@ -11,11 +11,27 @@ import { APP_NAME, APP_NAME_ODIA, ORGANIZATION } from "../config/constants";
  * Sets an HTTP-only session cookie on success.
  */
 export function AdminLoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signedInAs, setSignedInAs] = useState<AdminProfile | null>(null);
+
+  // Already authenticated? Skip the login form.
+  useEffect(() => {
+    let cancelled = false;
+    adminMe()
+      .then(() => {
+        if (!cancelled) navigate("/admin/dashboard", { replace: true });
+      })
+      .catch(() => {
+        /* not signed in - show the form */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -24,6 +40,8 @@ export function AdminLoginPage() {
     try {
       const admin = await adminLogin(email.trim(), password);
       setSignedInAs(admin);
+      // Hand off to the authenticated dashboard.
+      window.setTimeout(() => navigate("/admin/dashboard", { replace: true }), 600);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -53,13 +71,13 @@ export function AdminLoginPage() {
               Welcome, {signedInAs.name}
             </p>
             <p className="mt-1 text-sm text-leaf-700">
-              Your session is active. The editorial dashboard is on its way.
+              Opening the editorial dashboard…
             </p>
             <Link
-              to="/"
+              to="/admin/dashboard"
               className="mt-4 inline-block text-sm font-medium text-maroon-700 underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-maroon-800"
             >
-              Back to the magazine
+              Open dashboard now
             </Link>
           </div>
         ) : (

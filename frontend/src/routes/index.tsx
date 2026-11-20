@@ -5,6 +5,7 @@ import { SubmissionPage } from "../pages/SubmissionPage";
 import { ResumePage } from "../pages/ResumePage";
 import { SearchArticlePage } from "../pages/SearchArticlePage";
 import { AdminLoginPage } from "../pages/AdminLoginPage";
+import { AdminDashboardPage } from "../pages/AdminDashboardPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 
 /**
@@ -18,7 +19,8 @@ export function AppRoutes() {
         <Route path="/submit" element={<SubmissionPage />} />
         <Route path="/track" element={<SearchArticlePage />} />
         <Route path="/resume/:id" element={<ResumePage />} />
-        <Route path="/admin" element={<AdminLoginPage />} />
+        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

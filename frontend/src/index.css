@@ -239,3 +239,69 @@
   text-align: center;
 }
 
+/* Read-only rendering of sanitized article HTML (admin review).
+   Multilingual fonts come from --font-display (Noto Serif Odia/Devanagari). */
+.article-render {
+  font-family: var(--font-body);
+  color: var(--color-ink-700);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.article-render p {
+  margin: 0 0 1rem;
+}
+.article-render h1,
+.article-render h2,
+.article-render h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-maroon-800);
+  margin: 1.5rem 0 0.75rem;
+  line-height: 1.3;
+}
+.article-render h1 { font-size: 1.75rem; }
+.article-render h2 { font-size: 1.5rem; }
+.article-render h3 { font-size: 1.25rem; }
+.article-render strong { font-weight: 700; color: var(--color-ink-900); }
+.article-render em { font-style: italic; }
+.article-render u { text-decoration: underline; }
+.article-render ul,
+.article-render ol {
+  margin: 0 0 1rem 1.5rem;
+  padding-left: 1rem;
+}
+.article-render ul { list-style: disc; }
+.article-render ol { list-style: decimal; }
+.article-render li { margin: 0.25rem 0; }
+.article-render blockquote {
+  margin: 1.25rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 3px solid var(--color-gold-400);
+  background: var(--color-cream-100);
+  font-style: italic;
+  color: var(--color-ink-500);
+}
+.article-render a {
+  color: var(--color-maroon-600);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.article-render figure {
+  margin: 1.5rem auto;
+  max-width: 100%;
+}
+.article-render figure img,
+.article-render img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-gold-200);
+}
+.article-render figcaption {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  font-style: italic;
+  text-align: center;
+  color: var(--color-ink-500);
+}
+

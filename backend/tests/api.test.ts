@@ -566,6 +566,124 @@ d("Admin authentication and APIs", () => {
     expect(res.text).toContain("reference_number");
     expect(res.text).toContain("MDRAFM");
   });
+
+  it("GET /admin/me returns the admin only with a session", async () => {
+    const denied = await request(app).get("/api/v1/admin/me");
+    expect(denied.status).toBe(401);
+
+    const res = await request(app)
+      .get("/api/v1/admin/me")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.data.admin.name).toBe("Test Admin");
+  });
+
+  it("dashboard exposes explicit counts for every stat card", async () => {
+    const res = await request(app)
+      .get("/api/v1/admin/dashboard")
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    const d = res.body.data;
+    expect(typeof d.totalContributors).toBe("number");
+    expect(typeof d.totalDrafts).toBe("number");
+    expect(typeof d.totalFinalSubmissions).toBe("number");
+    expect(typeof d.pendingReviews).toBe("number");
+    expect(d.byType).toHaveProperty("writeup");
+    expect(d.byType).toHaveProperty("painting");
+    expect(d.totalFinalSubmissions).toBe(d.totalSubmissions - d.byStatus.draft);
+  });
+
+  it("filters the server-side list by status, type and language", async () => {
+    const draft = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ status: "draft", limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(draft.status).toBe(200);
+    expect(draft.body.data.items.every((i: { status: string }) => i.status === "draft")).toBe(true);
+
+    const paintings = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ submissionType: "painting", limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(paintings.status).toBe(200);
+    expect(
+      paintings.body.data.items.every(
+        (i: { submissionType: string }) => i.submissionType === "painting"
+      )
+    ).toBe(true);
+
+    const odia = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ language: "odia", limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(odia.status).toBe(200);
+    expect(odia.body.data.items.every((i: { language: string }) => i.language === "odia")).toBe(true);
+  });
+
+  it("filters by contributor name, mobile, designation and date range", async () => {
+    const name = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ contributorName: "Test Contributor", limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(name.status).toBe(200);
+    expect(name.body.data.total).toBeGreaterThan(0);
+
+    const mobile = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ phone: localPhone, limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(mobile.status).toBe(200);
+    expect(mobile.body.data.total).toBeGreaterThan(0);
+
+    const designation = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ designation: "Teacher", limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(designation.status).toBe(200);
+    expect(designation.body.data.total).toBeGreaterThan(0);
+
+    const future = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ fromDate: "2099-01-01", limit: 100 })
+      .set("Cookie", adminCookie);
+    expect(future.status).toBe(200);
+    expect(future.body.data.total).toBe(0);
+  });
+
+  it("paginates and returns only the requested page of rows", async () => {
+    const res = await request(app)
+      .get("/api/v1/admin/submissions")
+      .query({ page: 1, limit: 1 })
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toHaveLength(1);
+    expect(res.body.data.limit).toBe(1);
+    expect(res.body.data.totalPages).toBeGreaterThan(1);
+  });
+
+  it("exports only filtered rows as CSV", async () => {
+    const res = await request(app)
+      .get("/api/v1/admin/export")
+      .query({ status: "approved" })
+      .set("Cookie", adminCookie);
+    expect(res.status).toBe(200);
+    expect(res.text).toContain("reference_number");
+    expect(res.text).not.toContain("Test Memories");
+  });
+
+  it("protects and validates the original-image download route", async () => {
+    const denied = await request(app).get(
+      `/api/v1/admin/submissions/${paintingId}/images/00000000-0000-0000-0000-000000000000/download`
+    );
+    expect(denied.status).toBe(401);
+
+    const missing = await request(app)
+      .get(
+        `/api/v1/admin/submissions/${paintingId}/images/00000000-0000-0000-0000-000000000000/download`
+      )
+      .set("Cookie", adminCookie);
+    expect(missing.status).toBe(404);
+  });
 });
 
 d("Uploads", () => {
