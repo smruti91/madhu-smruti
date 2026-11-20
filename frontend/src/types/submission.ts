@@ -128,3 +128,20 @@ export interface UpdateSubmissionPayload {
   painting?: PaintingInput;
   contributor?: Partial<ContributorInput>;
 }
+
+/** Lightweight submission info returned by public phone search. */
+export interface SubmissionSearchResult {
+  id: string;
+  referenceNumber: string;
+  title: string;
+  submissionType: SubmissionType;
+  language: SubmissionLanguage;
+  status: "draft" | "submitted" | "under_review" | "approved" | "rejected";
+  createdAt: string;
+  updatedAt: string;
+  submittedAt: string | null;
+}
+
+export interface SearchSubmissionsResponse {
+  submissions: SubmissionSearchResult[];
+}

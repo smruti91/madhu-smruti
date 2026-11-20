@@ -2,8 +2,10 @@ import { apiClient } from "./client";
 import type { ApiSuccess } from "../types/api";
 import type {
   CreateSubmissionPayload,
+  SearchSubmissionsResponse,
   SubmissionCreated,
   SubmissionDetail,
+  SubmissionSearchResult,
   UpdateSubmissionPayload,
 } from "../types/submission";
 
@@ -57,4 +59,15 @@ export async function finalizeSubmission(
     { headers: { "X-Edit-Token": editToken } }
   );
   return response.data.data;
+}
+
+/** Public search by phone number - no authentication required. */
+export async function searchSubmissionsByPhone(
+  phone: string
+): Promise<SubmissionSearchResult[]> {
+  const response = await apiClient.get<ApiSuccess<SearchSubmissionsResponse>>(
+    "/submissions/search",
+    { params: { phone } }
+  );
+  return response.data.data.submissions;
 }

@@ -7,6 +7,7 @@ import { LotusDivider } from "../components/illustrations/artwork";
 const navLinks = [
   { to: "/", label: "Home", end: true },
   { to: "/submit", label: "Submit" },
+  { to: "/track", label: "Track Article" },
 ];
 
 /** Tiny live status dot for the footer (API health). */
@@ -113,6 +114,11 @@ export function RootLayout() {
                 <li>
                   <NavLink to="/#process" className="text-cream-200/80 transition-colors hover:text-gold-300">
                     How submissions work →
+                  </NavLink>
+                </li>
+                <li>
+                  <NavLink to="/track" className="text-cream-200/80 transition-colors hover:text-gold-300">
+                    Track your submission →
                   </NavLink>
                 </li>
               </ul>

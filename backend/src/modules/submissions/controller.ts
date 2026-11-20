@@ -3,6 +3,7 @@ import {
   buildSubmissionDetail,
   createSubmission,
   finalizeSubmission,
+  listSubmissionsByPhone,
   resumeEditingSession,
   updateSubmission,
 } from "./service";
@@ -78,4 +79,24 @@ export async function finalizeSubmissionHandler(req: Request, res: Response): Pr
 export async function resumeEditingHandler(req: Request, res: Response): Promise<void> {
   const result = await resumeEditingSession(authorizedSubmission(req));
   sendSuccess(res, result, "Editing session issued");
+}
+
+/**
+ * GET /api/submissions/search?phone=...
+ * Public search by phone number - returns all submissions for that contributor.
+ * No authentication required - phone number is the access credential.
+ */
+export async function searchSubmissionsHandler(req: Request, res: Response): Promise<void> {
+  const { phone } = req.query;
+
+  if (!phone || typeof phone !== "string" || !phone.trim()) {
+    res.status(400).json({
+      success: false,
+      message: "Phone number is required",
+    });
+    return;
+  }
+
+  const results = await listSubmissionsByPhone(phone.trim());
+  sendSuccess(res, { submissions: results }, "Search completed");
 }

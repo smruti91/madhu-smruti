@@ -5,6 +5,7 @@ import {
   submissions,
   submissionHistory,
 } from "../../db/schema";
+import { normalizeIndianMobile } from "../../utils/phone";
 
 export type SubmissionStatus = (typeof submissions.status.enumValues)[number];
 
@@ -380,6 +381,49 @@ export async function resumeEditingSession(submission: Submission) {
 // ---------------------------------------------------------------------------
 // Admin operations
 // ---------------------------------------------------------------------------
+
+/**
+ * Public search: find all submissions by a contributor's phone number.
+ * Returns drafts and finalized submissions ordered by most recent first.
+ * No authentication required - phone number is the access credential.
+ */
+export async function listSubmissionsByPhone(phone: string) {
+  const db = getDb();
+  const normalizedPhone = normalizeIndianMobile(phone);
+  if (!normalizedPhone) return [];
+
+  // Find the contributor by phone
+  const [contributor] = await db
+    .select()
+    .from(contributors)
+    .where(eq(contributors.phone, normalizedPhone));
+
+  if (!contributor) return [];
+
+  // Get all submissions for this contributor
+  const submissionsList = await db
+    .select({
+      id: submissions.id,
+      referenceNumber: submissions.referenceNumber,
+      title: submissions.title,
+      submissionType: submissions.submissionType,
+      language: submissions.language,
+      status: submissions.status,
+      createdAt: submissions.createdAt,
+      updatedAt: submissions.updatedAt,
+      submittedAt: submissions.submittedAt,
+    })
+    .from(submissions)
+    .where(eq(submissions.contributorId, contributor.id))
+    .orderBy(desc(submissions.createdAt));
+
+  return submissionsList.map((s) => ({
+    ...s,
+    createdAt: s.createdAt.toISOString(),
+    updatedAt: s.updatedAt.toISOString(),
+    submittedAt: s.submittedAt?.toISOString() ?? null,
+  }));
+}
 
 export async function listSubmissionsForAdmin(query: AdminListQuery) {
   const db = getDb();

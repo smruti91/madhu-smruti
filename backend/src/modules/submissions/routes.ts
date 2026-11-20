@@ -4,17 +4,21 @@ import {
   finalizeSubmissionHandler,
   getSubmissionHandler,
   resumeEditingHandler,
+  searchSubmissionsHandler,
   updateSubmissionHandler,
 } from "./controller";
 import { requireEditAccess } from "./middleware";
 import { validateBody } from "../../middleware/validate";
-import { editLimiter } from "../../middleware/rateLimit";
+import { editLimiter, publicLimiter } from "../../middleware/rateLimit";
 import { createSubmissionSchema, updateSubmissionSchema } from "./validator";
 
 const router = Router();
 
 // POST /api/submissions - create draft (edit token returned once)
 router.post("/", validateBody(createSubmissionSchema), createSubmissionHandler);
+
+// GET /api/submissions/search - public search by phone number
+router.get("/search", publicLimiter, searchSubmissionsHandler);
 
 // GET /api/submissions/:id - private access with edit token only
 router.get("/:id", editLimiter, requireEditAccess, getSubmissionHandler);

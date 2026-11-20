@@ -41,3 +41,14 @@ export const editLimiter = rateLimit({
   legacyHeaders: false,
   message,
 });
+
+/**
+ * Limiter for public endpoints (phone search).
+ */
+export const publicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message,
+});

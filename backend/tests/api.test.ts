@@ -414,6 +414,63 @@ d("Submission lifecycle with edit tokens", () => {
   });
 });
 
+d("Search submissions by phone number", () => {
+  it("requires a phone number", async () => {
+    const res = await request(app).get("/api/v1/submissions/search");
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  it("returns an empty list for an unknown phone number", async () => {
+    const res = await request(app)
+      .get("/api/v1/submissions/search")
+      .query({ phone: "+91 99999 88888" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.submissions).toEqual([]);
+  });
+
+  it("returns an empty list for a malformed phone number", async () => {
+    const res = await request(app)
+      .get("/api/v1/submissions/search")
+      .query({ phone: "not-a-number" });
+    expect(res.status).toBe(200);
+    expect(res.body.data.submissions).toEqual([]);
+  });
+
+  it("finds draft and submitted records, most recent first", async () => {
+    const res = await request(app)
+      .get("/api/v1/submissions/search")
+      .query({ phone }); // E.164 format used when the fixtures were created
+    expect(res.status).toBe(200);
+    const submissions = res.body.data.submissions;
+    expect(Array.isArray(submissions)).toBe(true);
+    expect(submissions.length).toBeGreaterThanOrEqual(2);
+
+    const statuses = submissions.map((s: { status: string }) => s.status);
+    expect(statuses).toContain("submitted");
+    expect(statuses).toContain("draft");
+
+    // Most recent first
+    const times = submissions.map(
+      (s: { createdAt: string }) => new Date(s.createdAt).getTime()
+    );
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+
+    // No credential material leaked
+    expect(JSON.stringify(res.body)).not.toContain("editTokenHash");
+    expect(JSON.stringify(res.body)).not.toContain("editToken");
+  });
+
+  it("normalizes alternate phone formats to find the same contributor", async () => {
+    const local = phone.replace(/^\+91/, "");
+    const res = await request(app)
+      .get("/api/v1/submissions/search")
+      .query({ phone: `0${local}` }); // trunk prefix format
+    expect(res.status).toBe(200);
+    expect(res.body.data.submissions.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
 d("Admin authentication and APIs", () => {
   it("rejects bad credentials", async () => {
     const res = await request(app)
