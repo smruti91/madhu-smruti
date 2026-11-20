@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import type { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
@@ -13,6 +13,7 @@ import {
   Eye,
   Italic,
   Link2,
+  Languages,
   Link2Off,
   List,
   ListOrdered,
@@ -27,6 +28,11 @@ import {
 } from "lucide-react";
 import { EditorImage } from "./EditorImage";
 import { uploadImage } from "../../api/uploads";
+import {
+  SCRIPT_LABELS,
+  transliterate,
+  type IndicScript,
+} from "../../utils/indic";
 
 /**
  * Full writeup editor for MADHU SMRUTI.
@@ -120,6 +126,10 @@ export function WriteupEditor({
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [linkValue, setLinkValue] = useState("");
+  // Indic typing support: script mode + optional romanized input helper.
+  const [script, setScript] = useState<IndicScript | "english">("english");
+  const [indicHelperOpen, setIndicHelperOpen] = useState(false);
+  const [romanInput, setRomanInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestHtmlRef = useRef("");
 
@@ -146,6 +156,23 @@ export function WriteupEditor({
     editor,
     selector: (ctx) => (ctx.editor ? computeToolbarState(ctx.editor) : null),
   });
+
+  // Mark the editable area with the active language so device keyboards and
+  // screen readers treat the input correctly.
+  useEffect(() => {
+    if (!editor) return;
+    editor.view.dom.setAttribute("lang", script === "english" ? "en" : script);
+  }, [editor, script]);
+
+  const insertTransliterated = () => {
+    if (!editor || script === "english" || !romanInput.trim()) return;
+    const text = transliterate(romanInput, script);
+    editor.chain().focus().insertContent(text).run();
+    setRomanInput("");
+  };
+
+  const scriptClass =
+    script === "odia" ? "script-odia" : script === "hindi" ? "script-hindi" : "";
 
   const handleImageSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -215,6 +242,35 @@ export function WriteupEditor({
       >
         <Redo2 className="h-4 w-4" />
       </ToolbarButton>
+
+      <Divider />
+
+      {/* Odia / Hindi typing support */}
+      <div
+        className="flex items-center gap-1 rounded-md border border-gold-300 bg-white px-1.5"
+        title="Typing script"
+      >
+        <Languages className="h-4 w-4 text-gold-600" aria-hidden="true" />
+        {(["english", "odia", "hindi"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            title={`Type in ${SCRIPT_LABELS[option]}`}
+            aria-pressed={script === option}
+            onClick={() => {
+              setScript(option);
+              if (option !== "english") setIndicHelperOpen(true);
+            }}
+            className={`rounded px-1.5 py-1 text-xs font-medium transition-colors ${
+              script === option
+                ? "bg-maroon-600 text-white"
+                : "text-ink-700 hover:bg-gold-200"
+            }`}
+          >
+            {SCRIPT_LABELS[option]}
+          </button>
+        ))}
+      </div>
 
       <Divider />
 
@@ -460,6 +516,60 @@ export function WriteupEditor({
   return (
     <div className="space-y-2">
       {toolbar}
+
+      {/* Roman → Odia / Hindi typing helper */}
+      {script !== "english" ? (
+        <div className="rounded-lg border border-gold-300 bg-cream-100 p-3">
+          <button
+            type="button"
+            onClick={() => setIndicHelperOpen((open) => !open)}
+            className="flex w-full items-center justify-between text-left text-sm font-medium text-maroon-700"
+            aria-expanded={indicHelperOpen}
+          >
+            <span className="flex items-center gap-2">
+              <Languages className="h-4 w-4" aria-hidden="true" />
+              Type {SCRIPT_LABELS[script]} without an Indic keyboard
+            </span>
+            <span className="text-xs text-ink-500">
+              {indicHelperOpen ? "Hide" : "Show"}
+            </span>
+          </button>
+          {indicHelperOpen ? (
+            <div className="mt-3 space-y-2">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={romanInput}
+                  onChange={(event) => setRomanInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      insertTransliterated();
+                    }
+                  }}
+                  placeholder="Type romanized text, e.g. namaste"
+                  aria-label={`Romanized ${SCRIPT_LABELS[script]} text`}
+                  className="min-w-0 flex-1 rounded-md border border-gold-300 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={insertTransliterated}
+                  disabled={!romanInput.trim()}
+                  className="rounded-md bg-maroon-600 px-4 py-2 text-sm font-medium text-white hover:bg-maroon-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Insert in {SCRIPT_LABELS[script]}
+                </button>
+              </div>
+              <p className="text-xs text-ink-500">
+                This helper converts common sounds as a rough guide. If you
+                already have an Odia/Hindi keyboard, you can type directly in
+                the editor — nothing is changed or transformed.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {imageError ? (
         <p className="text-xs text-red-600">{imageError}</p>
       ) : null}
@@ -476,13 +586,13 @@ export function WriteupEditor({
         <div className="rounded-lg border border-gold-300 bg-white">
           <EditorContent
             editor={editor}
-            className="writeup-prose min-h-64 px-5 py-4 sm:min-h-80"
+            className={`writeup-prose min-h-64 px-5 py-4 sm:min-h-80 ${scriptClass}`}
           />
         </div>
       ) : null}
       <p className="text-xs text-ink-400">
-        Type in Odia, Hindi or English using your device keyboard — text is kept
-        exactly as you write it.
+        Choose a script above, then type with your device keyboard or use the
+        romanized helper. Text is saved exactly as written.
       </p>
 
       {/* Full-page (focus) writing mode */}
@@ -502,7 +612,10 @@ export function WriteupEditor({
             </div>
             {toolbar}
             <div className="flex-1 rounded-lg border border-gold-300 bg-white">
-              <EditorContent editor={editor} className="writeup-prose min-h-[60vh] px-6 py-5" />
+              <EditorContent
+                editor={editor}
+                className={`writeup-prose min-h-[60vh] px-6 py-5 ${scriptClass}`}
+              />
             </div>
           </div>
         </div>

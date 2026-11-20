@@ -305,3 +305,15 @@
   color: var(--color-ink-500);
 }
 
+/* Script-aware editing: readable Odia / Devanagari glyphs while typing. */
+.writeup-prose.script-odia .ProseMirror {
+  font-family: "Noto Serif Odia", var(--font-display);
+  font-size: 1.125rem;
+  line-height: 2;
+}
+.writeup-prose.script-hindi .ProseMirror {
+  font-family: "Noto Serif Devanagari", var(--font-display);
+  font-size: 1.125rem;
+  line-height: 2;
+}
+
