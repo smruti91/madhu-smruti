@@ -29,6 +29,13 @@
       "when": 1795167208613,
       "tag": "0003_edit_token_hash_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795238629557,
+      "tag": "0004_add_contributor_photo",
+      "breakpoints": true
     }
   ]
 }

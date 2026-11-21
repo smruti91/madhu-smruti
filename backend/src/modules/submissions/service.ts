@@ -301,6 +301,12 @@ export async function updateSubmission(submission: Submission, input: UpdateSubm
         ...(input.contributor.designation !== undefined
           ? { designation: input.contributor.designation }
           : {}),
+        ...(input.contributor.contributorPhotoUrl !== undefined
+          ? { photoUrl: input.contributor.contributorPhotoUrl }
+          : {}),
+        ...(input.contributor.contributorPhotoFileId !== undefined
+          ? { photoFileId: input.contributor.contributorPhotoFileId }
+          : {}),
       })
       .where(eq(contributors.id, submission.contributorId));
   }

@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { registerContributor } from "./service";
+import { contributorPublicFields, registerContributor } from "./service";
 import { sendSuccess } from "../../utils/apiResponse";
 
 /**
@@ -12,10 +12,7 @@ export async function createContributorHandler(req: Request, res: Response): Pro
   sendSuccess(
     res,
     {
-      id: contributor.id,
-      name: contributor.name,
-      phone: contributor.phone,
-      designation: contributor.designation,
+      ...contributorPublicFields(contributor),
     },
     created ? "Contributor registered successfully" : "Contributor already registered - details updated",
     created ? 201 : 200

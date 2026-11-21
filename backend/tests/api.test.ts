@@ -99,6 +99,20 @@ d("Health & public endpoints", () => {
     }
   });
 
+  it("persists and returns contributor photo references (nullable)", async () => {
+    const update = await request(app)
+      .post("/api/contributors")
+      .send({
+        name: "Test Contributor",
+        phone: `0${localPhone}`,
+        photoUrl: "https://ik.imagekit.io/demo/photo.png",
+        photoFileId: "photo-file-id",
+      });
+    expect(update.status).toBe(200);
+    expect(update.body.data.contributorPhotoUrl).toBe("https://ik.imagekit.io/demo/photo.png");
+    expect(update.body.data.contributorPhotoFileId).toBe("photo-file-id");
+  });
+
   it("rejects invalid contributor payloads", async () => {
     const res = await request(app).post("/api/contributors").send({ name: "", phone: "abc" });
     expect(res.status).toBe(400);
@@ -174,6 +188,9 @@ d("Submission lifecycle with edit tokens", () => {
     expect(res.status).toBe(200);
     expect(res.body.data.title).toBe("Test Memories");
     expect(res.body.data.writeup.htmlContent).toContain("Madhu");
+    expect(res.body.data.contributor.contributorPhotoUrl).toBe(
+      "https://ik.imagekit.io/demo/photo.png"
+    );
     expect(JSON.stringify(res.body.data)).not.toContain("editTokenHash");
     expect(JSON.stringify(res.body.data)).not.toContain("token");
   });

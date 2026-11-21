@@ -294,6 +294,22 @@ in PostgreSQL (only URL + fileId references).
 
 **Errors** `400` no file / bad type · `413` file > 5 MB · `502` ImageKit upload failed
 
+### POST /api/uploads/contributor-photo
+
+Optional contributor photograph. `multipart/form-data` with field **`photo`**;
+JPEG/JPG/PNG/WebP, max 5 MB. Stored in the dedicated ImageKit folder
+`/madhu-smruti/contributors/` with a unique random filename. The returned URL
+and fileId are persisted on the contributor (and travel with the draft/final
+submission). **Response** `201` with the same `{ imageUrl, imagekitFileId, ... }` shape.
+
+### DELETE /api/uploads/image/:fileId?contributorId=...
+
+Deletes an unreferenced ImageKit file. Only contributor photos in our folder
+can be removed, and only by their owning contributor (pass their id) or when no
+database row references the file at all — preventing deletion of images still
+used by another submission. **Errors** `400` · `403` not a contributor photo ·
+`404` not in ImageKit · `409` still in use
+
 ---
 
 ## Admin endpoints

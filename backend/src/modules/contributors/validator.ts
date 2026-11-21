@@ -30,6 +30,9 @@ export const createContributorSchema = z.object({
     .trim()
     .max(120, "Designation must be 120 characters or fewer")
     .optional(),
+  // Optional contributor photograph (ImageKit references only).
+  photoUrl: z.string().url().optional().nullable(),
+  photoFileId: z.string().max(255).optional().nullable(),
 });
 
 export type CreateContributorInput = z.infer<typeof createContributorSchema>;

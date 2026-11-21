@@ -4,10 +4,17 @@
 export type SubmissionType = "writeup" | "painting";
 export type SubmissionLanguage = "english" | "hindi" | "odia";
 
+export interface ContributorPhoto {
+  imageUrl: string;
+  imagekitFileId: string;
+}
+
 export interface ContributorInput {
   name: string;
   phone: string;
   designation?: string;
+  contributorPhotoUrl?: string | null;
+  contributorPhotoFileId?: string | null;
 }
 
 export interface ContributorRegistered {
@@ -15,6 +22,8 @@ export interface ContributorRegistered {
   name: string;
   phone: string;
   designation?: string | null;
+  contributorPhotoUrl?: string | null;
+  contributorPhotoFileId?: string | null;
 }
 
 export interface WriteupInput {

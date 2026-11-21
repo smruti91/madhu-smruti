@@ -32,11 +32,13 @@ import {
 import { registerContributor } from "../api/contributors";
 import { getUploadLimits } from "../api/uploads";
 import { PaintingGallery } from "../components/painting/PaintingGallery";
+import { ContributorPhotoUpload } from "../components/contributors/ContributorPhotoUpload";
 import {
   formatIndianMobile,
   normalizeIndianMobile,
 } from "../utils/phone";
 import type {
+  ContributorPhoto,
   CreateSubmissionPayload,
   PaintingImageInput,
   SubmissionLanguage,
@@ -123,6 +125,8 @@ export function SubmissionPage() {
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [designation, setDesignation] = useState("");
+  const [contributorId, setContributorId] = useState<string | null>(null);
+  const [contributorPhoto, setContributorPhoto] = useState<ContributorPhoto | null>(null);
 
   // Submission details
   const [title, setTitle] = useState("");
@@ -208,6 +212,7 @@ export function SubmissionPage() {
         editorHtml,
         editorJson,
         paintingImages,
+        contributorPhoto,
         autosave: true,
       });
       await updateSubmission(draftId, draftToken, payload);
@@ -295,6 +300,13 @@ export function SubmissionPage() {
         setName(detail.contributor.name);
         setPhone(formatIndianMobile(detail.contributor.phone));
         setDesignation(detail.contributor.designation ?? "");
+        setContributorId(detail.contributor.id);
+        if (detail.contributor.contributorPhotoUrl && detail.contributor.contributorPhotoFileId) {
+          setContributorPhoto({
+            imageUrl: detail.contributor.contributorPhotoUrl,
+            imagekitFileId: detail.contributor.contributorPhotoFileId,
+          });
+        }
         setTitle(detail.title);
         setSubtitle(detail.subtitle ?? "");
         setCategory(detail.category ?? "");
@@ -411,12 +423,24 @@ export function SubmissionPage() {
     name: name.trim(),
     phone: normalizedPhone,
     ...(designation.trim() ? { designation: designation.trim() } : {}),
+    // Null clears a removed photo on update; undefined would leave it intact.
+    contributorPhotoUrl: contributorPhoto?.imageUrl ?? null,
+    contributorPhotoFileId: contributorPhoto?.imagekitFileId ?? null,
+  });
+
+  const contributorPhotoPayload = () => ({
+    contributor: {
+      contributorPhotoUrl: contributorPhoto?.imageUrl ?? null,
+      contributorPhotoFileId: contributorPhoto?.imagekitFileId ?? null,
+    },
   });
 
   const baseSavePayload = (autosave: boolean): UpdateSubmissionPayload => ({
     title: title.trim(),
     language,
     autosave,
+    // Keep the photo in autosaves so it is never lost between manual saves.
+    ...contributorPhotoPayload(),
   });
 
   /** Manual save of an existing draft (records audit history). */
@@ -444,6 +468,7 @@ export function SubmissionPage() {
     const contributor = await registerContributor(
       buildContributorDetails(normalizedPhone)
     );
+    setContributorId(contributor.id);
     const payload: CreateSubmissionPayload = {
       contributorId: contributor.id,
       title: title.trim(),
@@ -604,6 +629,8 @@ export function SubmissionPage() {
     setPhone("");
     setPhoneError(null);
     setDesignation("");
+    setContributorId(null);
+    setContributorPhoto(null);
     setTitle("");
     setSubtitle("");
     setCategory("");
@@ -744,6 +771,21 @@ export function SubmissionPage() {
             onBlur={markDirty}
             placeholder="e.g. Retired teacher"
             maxLength={120}
+          />
+        </div>
+
+        <div className="border-t border-gold-200 pt-4">
+          <p className="mb-3 text-sm font-medium text-ink-700">
+            Contributor Photo (Optional)
+          </p>
+          <ContributorPhotoUpload
+            value={contributorPhoto}
+            onChange={(photo) => {
+              setContributorPhoto(photo);
+              markDirty();
+            }}
+            maxFileSizeBytes={uploadLimits.maxFileSizeBytes}
+            contributorId={contributorId}
           />
         </div>
       </section>
@@ -982,15 +1024,21 @@ interface SavePayloadInput {
   editorHtml: string;
   editorJson: unknown;
   paintingImages: PaintingImageInput[];
+  contributorPhoto: ContributorPhoto | null;
   autosave: boolean;
 }
 
-/** Builds a PUT payload for the debounced autosave (no contributor changes). */
+/** Builds a PUT payload for the debounced autosave (no contributor name/phone changes). */
 function buildSavePayload(input: SavePayloadInput): UpdateSubmissionPayload {
   const payload: UpdateSubmissionPayload = {
     title: input.title.trim(),
     language: input.language,
     autosave: input.autosave,
+    // Persist the photo reference on autosave so it is never lost.
+    contributor: {
+      contributorPhotoUrl: input.contributorPhoto?.imageUrl ?? null,
+      contributorPhotoFileId: input.contributorPhoto?.imagekitFileId ?? null,
+    },
   };
   if (input.submissionType === "writeup") {
     payload.subtitle = input.subtitle.trim();

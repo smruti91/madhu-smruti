@@ -106,6 +106,8 @@ export const updateSubmissionSchema = z
         name: z.string().trim().min(1).max(120).optional(),
         phone: indianMobileSchema.optional(),
         designation: z.string().trim().max(120).optional(),
+        contributorPhotoUrl: z.string().url().optional().nullable(),
+        contributorPhotoFileId: z.string().max(255).optional().nullable(),
       })
       .optional(),
   })

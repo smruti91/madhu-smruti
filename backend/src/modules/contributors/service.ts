@@ -23,6 +23,10 @@ export async function registerContributor(input: CreateContributorInput) {
       .set({
         name: input.name,
         designation: input.designation ?? existing.designation,
+        ...(input.photoUrl !== undefined ? { photoUrl: input.photoUrl } : {}),
+        ...(input.photoFileId !== undefined
+          ? { photoFileId: input.photoFileId }
+          : {}),
       })
       .where(eq(contributors.id, existing.id))
       .returning();
@@ -35,6 +39,8 @@ export async function registerContributor(input: CreateContributorInput) {
       name: input.name,
       phone: input.phone,
       designation: input.designation ?? null,
+      photoUrl: input.photoUrl ?? null,
+      photoFileId: input.photoFileId ?? null,
     })
     .returning();
 
@@ -53,5 +59,7 @@ export function contributorPublicFields(contributor: typeof contributors.$inferS
     name: contributor.name,
     phone: contributor.phone,
     designation: contributor.designation,
+    contributorPhotoUrl: contributor.photoUrl,
+    contributorPhotoFileId: contributor.photoFileId,
   };
 }
