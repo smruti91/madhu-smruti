@@ -33,6 +33,7 @@ import {
   transliterate,
   type IndicScript,
 } from "../../utils/indic";
+import { IndicInput } from "../../utils/IndicInput";
 
 /**
  * Full writeup editor for MADHU SMRUTI.
@@ -133,6 +134,17 @@ export function WriteupEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const latestHtmlRef = useRef("");
 
+  // after the `script` useState line:
+const scriptRef = useRef(script);
+scriptRef.current = script;
+
+  // Live transliteration preview (Google Translate style): shows the native
+  // script output as the user types romanized text, before they insert it.
+  const transliteratedPreview =
+    script !== "english" && romanInput.trim()
+      ? transliterate(romanInput, script)
+      : "";
+
   const editor = useEditor({
     // JSON snapshot is authoritative for saved drafts; HTML is the fallback.
     content: initialJson ?? initialHtml,
@@ -143,6 +155,10 @@ export function WriteupEditor({
         types: ["heading", "paragraph", "blockquote"],
       }),
       EditorImage,
+          IndicInput.configure({
+        getScript: () => scriptRef.current,
+        transliterate,
+      }),
     ],
     immediatelyRender: false,
     onUpdate: ({ editor: current }) => {
@@ -159,10 +175,12 @@ export function WriteupEditor({
 
   // Mark the editable area with the active language so device keyboards and
   // screen readers treat the input correctly.
-  useEffect(() => {
-    if (!editor) return;
-    editor.view.dom.setAttribute("lang", script === "english" ? "en" : script);
-  }, [editor, script]);
+  const LANG_CODES = { english: "en", odia: "or", hindi: "hi" } as const;
+
+useEffect(() => {
+  if (!editor) return;
+  editor.view.dom.setAttribute("lang", LANG_CODES[script]);
+}, [editor, script]);
 
   const insertTransliterated = () => {
     if (!editor || script === "english" || !romanInput.trim()) return;
@@ -559,6 +577,20 @@ export function WriteupEditor({
                 >
                   Insert in {SCRIPT_LABELS[script]}
                 </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-ink-700">
+                  Preview:
+                </span>
+                <span
+                  className={`rounded-md border px-3 py-2 text-sm ${
+                    transliteratedPreview
+                      ? "border-gold-300 bg-white text-ink-900"
+                      : "border-dashed border-gold-200 bg-white/60 text-ink-400"
+                  } ${scriptClass}`}
+                >
+                  {transliteratedPreview || "Type romanized text to preview…"}
+                </span>
               </div>
               <p className="text-xs text-ink-500">
                 This helper converts common sounds as a rough guide. If you

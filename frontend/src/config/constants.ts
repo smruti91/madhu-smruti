@@ -15,4 +15,4 @@ export const MAGAZINE_TAGLINE = "A memorial magazine of stories, verses and pain
 
 /** One-line description of the publisher shown in the footer. */
 export const ORGANIZATION_BLURB =
-  "MDRAFM is a research academy devoted to folk art, literature and cultural memory. MADHU SMRUTI is its annual memorial magazine, kept alive by the contributions of its readers.";
+  "MDRAFM is the Finance Department training academy, Govt. of Odisha. MADHU SMRUTI is its annual memorial magazine, kept alive by the contributions of its readers.";
